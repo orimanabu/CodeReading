@@ -7,8 +7,14 @@
 
 ## デバッグプリントしたいとき
 ```
+import logging
+LOG = logging.getLogger(__name__)
 ```
-
+しておいて
+```
+LOG.info("XXX print me!")
+```
+を埋め込むと、/var/log/horizon/horizon.logにログが出る
 
 ## とりあえずgrep
 'Limit Summary'でgrepする
