@@ -25,7 +25,7 @@ network_api_class=nova.network.neutronv2.api.API
 Neutron:
 
  - API.deallocate_for_instance() @nova/network/neutronv2/api.py
- - API.\_\_unbind_ports() @nova/network/neutronv2/api.py
+ - API._unbind_ports() @nova/network/neutronv2/api.py
 
 Nova:
 
@@ -143,7 +143,7 @@ security_group_api=neutron
 
 - base class: SecurityGroupBase @nova/network/security_group/security_group_base.py
 
-### 読んでいるところ
+### 呼んでいるところ
 - ConductorManager.\_\_init\_\_() @nova/conductor/manager.py
 ```
         self.security_group_api = (
