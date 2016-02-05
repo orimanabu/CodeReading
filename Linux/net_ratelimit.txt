@@ -1,0 +1,8 @@
+# お題: "kernel: net_ratelimit: XX callbacks suppressed"の調査
+
+message: Jan 27 13:34:59 overcloud-controller-2 kernel: net_ratelimit: 98 callbacks suppressed
+
+## 表示しているところ
+___ratelimit() @lib/ratelimit.c
+__ratelimit() @include/linux/ratelimit.h
+
