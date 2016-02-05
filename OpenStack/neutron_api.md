@@ -4,14 +4,14 @@
 - class APIRouter(wsgi.Router) @neutron/api/v2/router.py
 
 ## URLマッピング
-- APIRouter.__init__() @neutron/api/v2/router.py
+- APIRouter.\_\_init\_\_() @neutron/api/v2/router.py
 
 # Security GroupのAPIマッピング
 - Securitygroup.get_resources() @neutron/extensions/securitygroup.py
 
 ## ML2
 ### NeutronManager
-- NeutronManager.__init__() @neutron/manager.py
+- NeutronManager.\_\_init\_\_() @neutron/manager.py
 - NeutronManager._load_service_plugins() @neutron/manager.py
 - NeutronManager._load_services_from_core_plugin() @neutron/manager.py
 

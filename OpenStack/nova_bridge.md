@@ -20,12 +20,12 @@ Security Group APIは、Network APIがNeutronの場合はnova、neutronのどち
 network_api_class=nova.network.neutronv2.api.API
 ```
 
-- API() @nova/network/__init__.py
+- API() @nova/network/\_\_init\_\_.py
 
 Neutron:
 
  - API.deallocate_for_instance() @nova/network/neutronv2/api.py
- - API.__unbind_ports() @nova/network/neutronv2/api.py
+ - API.\_\_unbind_ports() @nova/network/neutronv2/api.py
 
 Nova:
 
@@ -35,8 +35,8 @@ Nova:
 ## セキュリティグループの設定にしたがってiptablesのルールを作成するところ
 - SecurityGroupAgentRpc.init_firewall() @neutron/agent/securitygroups_rpc.py
 - OVSHybridIptablesFirewallDriver @@neutron/agent/linux/iptables_firewall.py
-- IptablesFirewallDriver.__init__() @@neutron/agent/linux/iptables_firewall.py
-- IptablesManager.__init__() @@neutron/agent/linux/iptables_manager.py
+- IptablesFirewallDriver.\_\_init\_\_() @@neutron/agent/linux/iptables_firewall.py
+- IptablesManager.\_\_init\_\_() @@neutron/agent/linux/iptables_manager.py
 
 ## qbrブリッジを挟む処理
 - resume or spawn
@@ -72,7 +72,7 @@ vif.is_hybrid_plug_enabled()
 
 
 ## メカニズムドライバーの初期化
-- OpenvswitchMechanismDriver.__init__() @neutron/plugins/ml2/drivers/mech_openvswitch.py
+- OpenvswitchMechanismDriver.\_\_init\_\_() @neutron/plugins/ml2/drivers/mech_openvswitch.py
 
 - is_security_enabled() @neutron/agent/securitygroups_rpc.py の戻り値で port_filter、ovs_hybrid_plugを初期化
 - _is_valid_driver_combination() @neutron/agent/securitygroups_rpc.py
@@ -144,20 +144,20 @@ security_group_api=neutron
 - base class: SecurityGroupBase @nova/network/security_group/security_group_base.py
 
 ### 読んでいるところ
-- ConductorManager.__init__() @nova/conductor/manager.py
+- ConductorManager.\_\_init\_\_() @nova/conductor/manager.py
 ```
         self.security_group_api = (
             openstack_driver.get_openstack_security_group_driver())
 ```
 
-- API.__init__() @nova/compute/api.py
+- API.\_\_init\_\_() @nova/compute/api.py
 ```
         self.security_group_api = (security_group_api or
             openstack_driver.get_openstack_security_group_driver(
                 skip_policy_check=skip_policy_check))
 ```
 
-- SecurityGroupControllerBase.__init__() @nova/api/openstack/compute/contrib/security_groups.py
+- SecurityGroupControllerBase.\_\_init\_\_() @nova/api/openstack/compute/contrib/security_groups.py
 ```
         self.security_group_api = (
             openstack_driver.get_openstack_security_group_driver())
