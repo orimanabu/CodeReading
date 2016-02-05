@@ -5,6 +5,11 @@
 - /usr/share/openstack-dashboard ($dashboard)
 - /usr/lib/python2.7/site-packages/horizon ($horizon)
 
+## デバッグプリントしたいとき
+```
+```
+
+
 ## とりあえずgrep
 'Limit Summary'でgrepする
 
@@ -44,7 +49,7 @@ self.usage_classはbase.UsageBaseのサブクラスっぽい
 ## base.UsageBase
 - UsageBase.get_limits() @$dashboard/openstack_dashboard/usage/base.py
 
-  - api.nova.tenant_absolute_limits()を読んでいる
+  - api.nova.tenant_absolute_limits()を呼んでいる
 
 ## Nova API call
 - tenant_absolute_limits() @$dashboard/api/nova.py
