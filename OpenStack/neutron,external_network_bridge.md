@@ -7,6 +7,8 @@ external_network_bridge を設定しない場合は、仮想ルータの qg、qr
 
 ...ように見えるけど本当？
 
+![仮想ルータOVSポート構成](neutron,external_network_bridge.png "Router and OVS ports")
+
 ## 見るところ
 とりあえず grep すると、パラメータ external_network_bridge は neutron/agent/l3/config.py で読み込まれて、neutron/agent/l3/agent.py で処理されているっぽい。
 
