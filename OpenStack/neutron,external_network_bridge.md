@@ -62,7 +62,7 @@ self.driver.plug() の引き数として bridge に渡している。
                          prefix=EXTERNAL_DEV_PREFIX)
 ```
 
-self.driver は __init__() で interface_driver が代入されている。
+self.driver は \_\_init\_\_() で interface_driver が代入されている。
 これは多分 /etc/neutron/l3_agent.ini で定義されている値だと思ってみる。
 
 ```
