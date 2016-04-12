@@ -1,5 +1,9 @@
 # Neutron L3 Agentのexternal_network_bridgeの調査
 
+- バージョン
+  - RHOSP8 (Liberty)
+  - RHEL7
+
 ## 調査同期
 /etc/neutron/l3_agent.iniのDEFAULT.external_network_bridge を設定すると、仮想ルータの qg が br-int に、qr が br-ex にささって、br-int と br-ex の間に仮想ルータが挟まるような形になる。
 
