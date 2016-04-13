@@ -177,3 +177,14 @@ total 240
 - HeatのSoftwareDeploymentの終了ステータスをundercloudに通知する
 
 
+## 参考文献
+
+- Steve Hardy's blog: [Heat Nested Resource Introspection] (http://hardysteven.blogspot.jp/2013_08_01_archive.html)
+- Steve Hardy's blog: [Heat Providers/Environments 101] (http://hardysteven.blogspot.jp/2013_10_01_archive.html)
+- Steve Hardy's blog: [Using Heat ResourceGroup resources] (http://hardysteven.blogspot.jp/2014/09/using-heat-resourcegroup-resources.html)
+- Steve Hardy's blog: [Debugging TripleO Heat templates] (http://hardysteven.blogspot.jp/2015/04/debugging-tripleo-heat-templates.html)
+- Steve Hardy's blog: [Heat SoftwareConfig resources - primer/overview] (http://hardysteven.blogspot.jp/2015/05/heat-softwareconfig-resources.html)
+- Steve Hardy's blog: [TripleO Heat templates Part 1 - Roles and Groups] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-1-roles-and.html)
+- Steve Hardy's blog: [TripleO Heat templates Part 2 - Node initial deployment & config] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-2-node.html)
+- Steve Hardy's blog: [TripleO Heat templates Part 3 - Cluster configuration, introduction/primer] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-3-cluster.html)
+- OpenStack Summit Atlanta 2014: Application software configuration using Heat [video](https://www.openstack.org/summit/openstack-summit-atlanta-2014/session-videos/presentation/application-software-configuration-using-heat) [pdf](https://www.openstack.org/assets/presentation-media/heat-software-config.pdf)
