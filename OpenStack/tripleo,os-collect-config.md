@@ -14,7 +14,7 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 
 <dl>
 <dt>THT
-<dd>TripleO Heat Template https://github.com/openstack/tripleo-heat-templates
+<dd>TripleO Heat Templates https://github.com/openstack/tripleo-heat-templates
 <dt>DIB
 <dd>Diskimage-builder https://github.com/openstack/diskimage-builder
 <dt>RHOSP
@@ -30,7 +30,7 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 ## おおまかな流れ
 
 1. Heat コントローラ (heat-engine) は各ノードに対して、SoftwareDeployment リソースをメタデータとして用意する
-1. 各 overcloud ノード上では、os-collect-configがメタデータをダウンロード
+1. 各 overcloud ノード上では、os-collect-config がメタデータを定期的にダウンロード
 1. メタデータの変更があれば、os-collect-config が os-refresh-config を実行し、os-refresh-config が変更された設定を適用
 
 ![os-collect-config](https://wiki.openstack.org/w/images/thumb/9/92/Os-collect-config-and-friends.svg/990px-Os-collect-config-and-friends.svg.png "os-collect-config")
@@ -155,7 +155,8 @@ total 240
     -  /usr/libexec/os-refresh-config/post-configure.d
   - 各スクリプトは、os-collect-configがダウンロードしたメタデータを元に実際に適用していく
 
-- os-refresh-configの主な実施内容 (configure.d)
+- os-refresh-configの主な処理内容 (configure.d)
+
 1. sysctlの設定
 2. os-apply-configを実行
 3. os-net-configの実行
