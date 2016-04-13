@@ -179,6 +179,12 @@ total 240
 
 ## 参考文献
 
+- OpenStack Wiki: [TripleO] (https://wiki.openstack.org/wiki/TripleO)
+- OpenStack docs: [Welcome to TripleO documentation] (http://docs.openstack.org/developer/tripleo-docs/)
+- OpenStack docs: [OpenStack on OpenStack, or TripleO] (http://docs.openstack.org/developer/tripleo-incubator/README.html)
+- OpenStack Summit Portland 2013: OpenStack-on-OpenStack Overview [video](https://www.openstack.org/summit/portland-2013/session-videos/presentation/openstack-on-openstack-overview) [slides](http://www.slideshare.net/openstack/robert-collins-openstack-on-openstack-201304162)
+- OpenStack Summit Portland 2013: Deploying and Managing OpenStack with Heat [video](https://www.openstack.org/summit/portland-2013/session-videos/presentation/deploying-and-managing-openstack-with-heat) [slides](http://spamaps.org/files/OpenStackSummit_HeatOpenStackManagement.pdf)
+- [TripleO: OpenStack on OpenStack] (http://events.linuxfoundation.org/sites/events/files/slides/TripleO%20Overview.pdf)
 - Steve Hardy's blog: [Heat Nested Resource Introspection] (http://hardysteven.blogspot.jp/2013_08_01_archive.html)
 - Steve Hardy's blog: [Heat Providers/Environments 101] (http://hardysteven.blogspot.jp/2013_10_01_archive.html)
 - Steve Hardy's blog: [Using Heat ResourceGroup resources] (http://hardysteven.blogspot.jp/2014/09/using-heat-resourcegroup-resources.html)
@@ -187,4 +193,6 @@ total 240
 - Steve Hardy's blog: [TripleO Heat templates Part 1 - Roles and Groups] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-1-roles-and.html)
 - Steve Hardy's blog: [TripleO Heat templates Part 2 - Node initial deployment & config] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-2-node.html)
 - Steve Hardy's blog: [TripleO Heat templates Part 3 - Cluster configuration, introduction/primer] (http://hardysteven.blogspot.jp/2015/05/tripleo-heat-templates-part-3-cluster.html)
-- OpenStack Summit Atlanta 2014: Application software configuration using Heat [video](https://www.openstack.org/summit/openstack-summit-atlanta-2014/session-videos/presentation/application-software-configuration-using-heat) [pdf](https://www.openstack.org/assets/presentation-media/heat-software-config.pdf)
+- OpenStack Summit Atlanta 2014: Application software configuration using Heat [video](https://www.openstack.org/summit/openstack-summit-atlanta-2014/session-videos/presentation/application-software-configuration-using-heat) [slides](https://www.openstack.org/assets/presentation-media/heat-software-config.pdf)
+- OSC2014-fall: [「HP Helion」から見えてくるOpenStackの近未来像] (http://www.ospn.jp/osc2014-fall/pdf/OSC2014_fall_HP.pdf)
+- DevConf 2014: [TripleO: Provision your datacenter with OpenStack] (https://github.com/ifarkas/devconf2014-tripleo)
