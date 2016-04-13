@@ -55,10 +55,39 @@ Nova metadata サービスから、os-collect-config に必要なデータをダ
 - cloud-initによって、初回起動時に設定される (/etc/os-collect-config.conf)
 - メタデータのダウンロード先は/var/lib/os-collect-config
 
-### os-collect-config tips
+```
+# cat /etc/os-collect-config.conf
+[DEFAULT]
+command = os-refresh-config
 
+[cfn]
+metadata_url = http://x.x.x.x:8000/v1/
+stack_name = overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53
+secret_access_key = a913250261c14e5da63b7b8fe2fcaaa2
+access_key_id = ad67df916d7342a293c904ff5367e99c
+path = NovaCompute.Metadata
+```
+
+### tips
+
+- main() は os_collect_config/collect.py
 - オプション --one-time つきで実行された場合は、一度メタデータを取得して (必要に応じてさらに os-refresh-config して) 終了
 - --one-time をつけなければ (通常 systemd からこの状態でサービスとして起動)、CONF.polling_interval (デフォルト 30 秒) ごとにメタデータをポーリング
+- メタデータのポーリングは、Collector クラスが実行する。Collector としては、下記が用意されている。RHOSP では cfn を使う。
+  - heat_local
+  - ec2
+  - cfn
+  - heat
+  - request
+  - local
+- cfn 用の Collector は os_collect_config/cfn.py
+
+### main()
+
+下記内容を無限ループ
+1. collect_all() でメタデータを取得
+1. call_command() で CONF.command (RHOSP の場合 os-refresh-config ←cloud-init で取得した設定ファイルに書かれている) を実行
+1. CONF.polling_interval (デフォルト 30 秒) 待つ
 
 ## os-refresh-config
 - メタデータの変更があった場合、os-collect-configから呼ばれる
