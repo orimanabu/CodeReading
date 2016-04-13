@@ -2,11 +2,13 @@
 
 ## 動機
 
-RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment / SoftwareConfig リソースの仕組みを使って実施する。
+RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment / SoftwareConfig リソースの仕組みを使って実施します。
 
-overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、まず 1 台のコントローラノードで Galera の bootstrap 処理をした後に、残りのコントローラノードがそれに join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード上の heat-engine) に対して実行ステータスを signal として通知し、Heat コントローラは該当ノードに対して次の SoftwareDeployment を適用する。該当ノードは、新しい SoftwareDeployment のメタデータをもらって設定を進める。
+overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されています。例えば Galera Cluster を構成する場合は、まず 1 台のコントローラノードで Galera の bootstrap 処理をした後に、残りのコントローラノードがそれに join して...的なことをする必要があるわけですが、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されています。
 
-この、overcloud ノード内のソフトウェア設定の流れをまとめたい、というのがこの文書の趣旨なのです。
+各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード上の heat-engine) に対して実行ステータスを signal として通知します。Heat コントローラは通知を受けると、該当ノードに対して次の SoftwareDeployment を準備します。該当ノードは、新しい SoftwareDeployment のメタデータをもらってさらに設定を進めます。
+
+これらの overcloud ノード内のソフトウェア設定の流れをまとめたい、というのがこの文書の趣旨です。
 
 <a name="footnote1">1</a>: https://www.rdoproject.org/blog/2016/02/rdo-manager-is-now-tripleo/
 
