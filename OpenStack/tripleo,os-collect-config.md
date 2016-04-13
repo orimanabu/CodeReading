@@ -2,7 +2,7 @@
 
 RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment / SoftwareConfig リソースの仕組みを使って実施する。
 
-overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、最初に 1 ノードで bootstrap した後に残りのノードが join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード) に対して実行ステータスを signal として通知し、Heat コントローラは該当ノードに対して次の SoftwareDeployment を適用する。該当ノードは、新しい SoftwareDeployment のメタデータをもらって設定を進める。
+overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、まず 1 台のコントローラノードで Galera の bootstrap 処理をした後に、残りのコントローラノードがそれに join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード上の heat-engine) に対して実行ステータスを signal として通知し、Heat コントローラは該当ノードに対して次の SoftwareDeployment を適用する。該当ノードは、新しい SoftwareDeployment のメタデータをもらって設定を進める。
 
 この、overcloud ノード内のソフトウェア設定の流れをまとめたい、というのがこの文書の趣旨なのです。
 
@@ -10,7 +10,7 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 
 ## おおまかな流れ
 
-1. Heat コントローラ (heat-engine) は各ノードに対して、SoftwareDeploymentリソースをメタデータとして用意する
+1. Heat コントローラ (heat-engine) は各ノードに対して、SoftwareDeployment リソースをメタデータとして用意する
 1. 各 overcloud ノード上では、os-collect-configがメタデータをダウンロード
 1. メタデータの変更があれば、os-collect-config が os-refresh-config を実行し、os-refresh-config が変更された設定を適用
 
@@ -26,9 +26,9 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
     - ここにある各 .pp ファイルは、Heat の SoftwareDeploymet を puppet manifest の形で表現したものとなっている
 
 ## cloud-init
-Nova metadata サービスから、os-collect-config に必要なデータをダウンロードする
+Nova のメタデータサービスから、os-collect-config に必要なデータをダウンロードする
 
-- /var/lib/heat-cfntools/cfn-init-data
+- ダウンロード先: /var/lib/heat-cfntools/cfn-init-data
 
 ```
 # python -m json.tool /var/lib/heat-cfntools/cfn-init-data
@@ -48,10 +48,10 @@ Nova metadata サービスから、os-collect-config に必要なデータをダ
 
 ## os-collect-config
 
-- systemdにより起動
-- Heat APIのメタデータをモニターし、ダウンロードする
+- 通常は systemd の unit として起動
+- Heat APIのメタデータを定期的にモニターし、ダウンロードする
 - メタデータの変更があれば、os-refresh-configを呼ぶ
-- メタデータ： これを使って設定を進める。ノード固有の値が入る
+  - メタデータ： これを使って設定を進める。ノード固有の値が入る
 - cloud-initによって、初回起動時に設定される (/etc/os-collect-config.conf)
 - メタデータのダウンロード先は/var/lib/os-collect-config
 
@@ -66,6 +66,39 @@ stack_name = overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53
 secret_access_key = a913250261c14e5da63b7b8fe2fcaaa2
 access_key_id = ad67df916d7342a293c904ff5367e99c
 path = NovaCompute.Metadata
+```
+
+```
+# ls -l /var/lib/os-collect-config/
+total 240
+-rw-------. 1 root root 55241 Apr 13 05:54 cfn.json
+-rw-------. 1 root root 55241 Mar 23 01:56 cfn.json.last
+-rw-------. 1 root root 14258 Mar 22 18:33 cfn.json.orig
+-rw-------. 1 root root  1066 Apr 13 05:54 ec2.json
+-rw-------. 1 root root  1066 Mar 22 18:33 ec2.json.last
+-rw-------. 1 root root  1066 Mar 22 18:33 ec2.json.orig
+-rw-------. 1 root root   335 Apr 13 05:54 heat_local.json
+-rw-------. 1 root root   335 Mar 22 18:33 heat_local.json.last
+-rw-------. 1 root root   335 Mar 22 18:33 heat_local.json.orig
+-rw-------. 1 root root   589 Mar 23 01:55 os_config_files.json
+-rw-------. 1 root root  3553 Mar 23 01:54 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-3usqsshd74l3.json
+-rw-------. 1 root root  3553 Mar 22 22:09 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-3usqsshd74l3.json.last
+-rw-------. 1 root root  3553 Mar 22 22:09 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-3usqsshd74l3.json.orig
+-rw-------. 1 root root  3685 Apr 13 05:54 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-u2syhknkn7it.json
+-rw-------. 1 root root  3685 Mar 23 01:55 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-u2syhknkn7it.json.last
+-rw-------. 1 root root  3685 Mar 23 01:55 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-u2syhknkn7it.json.orig
+-rw-------. 1 root root  3087 Mar 22 22:09 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-v5c644ckvm6d.json
+-rw-------. 1 root root  3087 Mar 22 18:37 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-v5c644ckvm6d.json.last
+-rw-------. 1 root root  3087 Mar 22 18:36 overcloud-allNodesConfig-zbigjr43tjbw-allNodesConfigImpl-v5c644ckvm6d.json.orig
+-rw-------. 1 root root  1347 Apr 13 05:54 overcloud-CephClusterConfig-nfjjwhniium6-CephClusterConfigImpl-5kkrhawegvrk.json
+-rw-------. 1 root root  1347 Mar 22 18:37 overcloud-CephClusterConfig-nfjjwhniium6-CephClusterConfigImpl-5kkrhawegvrk.json.last
+-rw-------. 1 root root  1347 Mar 22 18:36 overcloud-CephClusterConfig-nfjjwhniium6-CephClusterConfigImpl-5kkrhawegvrk.json.orig
+-rw-------. 1 root root  1145 Apr 13 05:54 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NetworkConfig-eecr3zz6dfer-OsNetConfigImpl-5avtuwbzzm5g.json
+-rw-------. 1 root root  1145 Mar 22 18:34 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NetworkConfig-eecr3zz6dfer-OsNetConfigImpl-5avtuwbzzm5g.json.last
+-rw-------. 1 root root  1145 Mar 22 18:33 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NetworkConfig-eecr3zz6dfer-OsNetConfigImpl-5avtuwbzzm5g.json.orig
+-rw-------. 1 root root  6678 Apr 13 05:54 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NovaComputeConfig-peiajxiu4aah.json
+-rw-------. 1 root root  6678 Mar 22 18:35 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NovaComputeConfig-peiajxiu4aah.json.last
+-rw-------. 1 root root  6678 Mar 22 18:35 overcloud-Compute-cvtecso6nlho-0-durjwtkd5x53-NovaComputeConfig-peiajxiu4aah.json.orig
 ```
 
 ### tips
@@ -87,7 +120,7 @@ path = NovaCompute.Metadata
 下記内容を無限ループ
 
 1. collect_all() でメタデータを取得
-1. call_command() で CONF.command (RHOSP の場合 os-refresh-config ←cloud-init で取得した設定ファイルに書かれている) を実行
+1. call_command() で CONF.command (RHOSP の場合 os-refresh-config ← cloud-init で取得した設定ファイルに書かれている) を実行
 1. CONF.polling_interval (デフォルト 30 秒) 待つ
 
 ## os-refresh-config
