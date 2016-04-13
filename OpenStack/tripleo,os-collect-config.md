@@ -85,6 +85,7 @@ path = NovaCompute.Metadata
 ### main()
 
 下記内容を無限ループ
+
 1. collect_all() でメタデータを取得
 1. call_command() で CONF.command (RHOSP の場合 os-refresh-config ←cloud-init で取得した設定ファイルに書かれている) を実行
 1. CONF.polling_interval (デフォルト 30 秒) 待つ
