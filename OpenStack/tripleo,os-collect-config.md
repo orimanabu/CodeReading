@@ -55,6 +55,11 @@ Nova metadata サービスから、os-collect-config に必要なデータをダ
 - cloud-initによって、初回起動時に設定される (/etc/os-collect-config.conf)
 - メタデータのダウンロード先は/var/lib/os-collect-config
 
+### os-collect-config tips
+
+- オプション --one-time つきで実行された場合は、一度メタデータを取得して (必要に応じてさらに os-refresh-config して) 終了
+- --one-time をつけなければ (通常 systemd からこの状態でサービスとして起動)、CONF.polling_interval (デフォルト 30 秒) ごとにメタデータをポーリング
+
 ## os-refresh-config
 - メタデータの変更があった場合、os-collect-configから呼ばれる
 - first boot時は必ず呼ばれる (初回起動時はメタデータがないので)
