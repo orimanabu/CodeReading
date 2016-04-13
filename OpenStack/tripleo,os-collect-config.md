@@ -18,11 +18,13 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 <dt>DIB
 <dd>Diskimage-builder https://github.com/openstack/diskimage-builder
 <dt>RHOSP
-<dd>Red Hat OpenStack Platform, バージョン 8 (Liberty) 以降はこの名称
+<dd>Red Hat OpenStack Platform, Red Hat の OpenStack 製品の名称。バージョン 8 (Liberty) 以降はこの名称
 <dt>RHEL OSP
-<dd>Red Hat Enterprise Linux OpenStack, バージョン 7 (Kilo) 以前はこの名称
+<dd>Red Hat Enterprise Linux OpenStack, Red Hat の OpenStack 製品の名称。バージョン 7 (Kilo) 以前はこの名称
 <dt>RDO Manager
-<dd>RHOSP/RHEL OSP の upstream プロジェクト, TripleO に名称変更
+<dd>RHOSP/RHEL OSP の upstream プロジェクト, 最近　TripleO に改名
+<dt>OSP director
+<dd>RDO Manager / TripleO の製品版 (downstream) の名称
 </dl>
 
 ## おおまかな流れ
