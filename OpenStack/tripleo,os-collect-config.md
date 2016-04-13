@@ -1,5 +1,7 @@
 # TripleOのovercloudで動くSoftwareDeploymentの仕組みを追いかける
 
+## 動機
+
 RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment / SoftwareConfig リソースの仕組みを使って実施する。
 
 overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、まず 1 台のコントローラノードで Galera の bootstrap 処理をした後に、残りのコントローラノードがそれに join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード上の heat-engine) に対して実行ステータスを signal として通知し、Heat コントローラは該当ノードに対して次の SoftwareDeployment を適用する。該当ノードは、新しい SoftwareDeployment のメタデータをもらって設定を進める。
@@ -8,6 +10,21 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 
 <a name="footnote1">1</a>: https://www.rdoproject.org/blog/2016/02/rdo-manager-is-now-tripleo/
 
+## TripleO 用語集
+
+<dl>
+<dt>THT
+<dd>TripleO Heat Template https://github.com/openstack/tripleo-heat-templates
+<dt>DIB
+<dd>Diskimage-builder https://github.com/openstack/diskimage-builder
+<dt>RHOSP
+<dd>Red Hat OpenStack Platform, バージョン 8 (Liberty) 以降はこの名称
+<dt>RHEL OSP
+<dd>Red Hat Enterprise Linux OpenStack, バージョン 7 (Kilo) 以前はこの名称
+<dt>RDO Manager
+<dd>RHOSP/RHEL OSP の upstream プロジェクト, TripleO に名称変更
+</dl>
+
 ## おおまかな流れ
 
 1. Heat コントローラ (heat-engine) は各ノードに対して、SoftwareDeployment リソースをメタデータとして用意する
@@ -15,7 +32,7 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 1. メタデータの変更があれば、os-collect-config が os-refresh-config を実行し、os-refresh-config が変更された設定を適用
 
 ![os-collect-config](https://wiki.openstack.org/w/images/thumb/9/92/Os-collect-config-and-friends.svg/990px-Os-collect-config-and-friends.svg.png "os-collect-config")
-(図は https://wiki.openstack.org/wiki/OsCollectConfig より引用)
+(図は https://wiki.openstack.org/wiki/OsCollectConfig より拝借)
 
 ## まめちしき
 
