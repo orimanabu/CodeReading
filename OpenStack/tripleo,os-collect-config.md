@@ -1,8 +1,8 @@
 # TripleOのovercloudで動くSoftwareDeploymentの仕組みを追いかける
 
-RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment/SoftwareConfig リソースの仕組みを使って実施する。
+RDO Manager 改め TripleO <sup>[1] (#footnote1)</sup> は、Ironic で overcloud のイメージを流し込んで再起動した後、overcloud 内のソフトウェア (つまり OpenStack の各種サービス) の設定を Heat の SoftwareDeployment / SoftwareConfig リソースの仕組みを使って実施する。
 
-overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、最初に 1 ノードで bootstrap した後に残りのノードが join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントトーラ (つまり undercloud ノード) に対して実行ステータスを signal として報告し、次の SoftwareDeployment のメタデータをもらって、次の設定を進める。
+overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat のリソース) の集合体となっていて、複雑に依存関係が定義されている。例えば Galera Cluster を構成する場合は、最初に 1 ノードで bootstrap した後に残りのノードが join して...的なことをする必要があるわけだけど、そういった順序関係や待ち合わせ等が Heat リソースの依存関係として定義されている。各 overcloud ノードでは、決められた SoftwareDeployment の設定を実行し、終わったら Heat コントローラ (つまり undercloud ノード) に対して実行ステータスを signal として通知し、Heat コントローラは該当ノードに対して次の SoftwareDeployment を適用する。該当ノードは、新しい SoftwareDeployment のメタデータをもらって設定を進める。
 
 この、overcloud ノード内のソフトウェア設定の流れをまとめたい、というのがこの文書の趣旨なのです。
 
@@ -10,23 +10,23 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 
 ## おおまかな流れ
 
-1. Heatは各ノードに対して、SoftwareDeploymentリソースをメタデータとして用意する
-1. os-collect-configがメタデータをダウンロード
-1. メタデータの変更があれば、os-refresh-configが適用
+1. Heat コントローラ (heat-engine) は各ノードに対して、SoftwareDeploymentリソースをメタデータとして用意する
+1. 各 overcloud ノード上では、os-collect-configがメタデータをダウンロード
+1. メタデータの変更があれば、os-collect-config が os-refresh-config を実行し、os-refresh-config が変更された設定を適用
 
 ## まめちしき
 
 - SoftwareDeploymentには "group" が設定されている
-- groupごとに、データを適用するためほ "hook" がある
-- groupが "puppet" なら、puppetを使って構成を進める
-- groupが "script" なら、シェルスクリプトとして実行して構成を進める
+- groupごとに、データを適用するための "hook" がある
+  - groupが "puppet" なら、hook はpuppetを使って構成を進める
+  - groupが "script" なら、hook はシェルスクリプトとして実行して構成を進める
 - hookは /var/lib/heat-config/hooks 以下に配置されている
-  - puppet hookでは、Heatから指示されたpuppet manifestを、(os-refresh-configで配置した) hieradataを使って適用する
-  - puppet manifestは /var/lib/heat-config/heat-config-puppt 以下に配置されている
-    - ここにある各 .pp ファイルは、HeatのSoftwareDeploymetをpuppet manifestの形で表現したものとなっている
+  - puppet hook では、Heat から指示された puppet manifest を、(os-refresh-config で配置した) hieradata を使って適用する
+  - puppet manifest は /var/lib/heat-config/heat-config-puppt 以下に配置されている
+    - ここにある各 .pp ファイルは、Heat の SoftwareDeploymet を puppet manifest の形で表現したものとなっている
 
 ## cloud-init
-Nova metadataサービスから、os-collect-configに必要なデータをダウンロードする
+Nova metadata サービスから、os-collect-config に必要なデータをダウンロードする
 
 - /var/lib/heat-cfntools/cfn-init-data
 
