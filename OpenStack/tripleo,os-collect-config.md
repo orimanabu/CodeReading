@@ -15,7 +15,7 @@ overcloud 上の OpenStack の設定は、多数の SoftwareDeployment (Heat の
 1. メタデータの変更があれば、os-collect-config が os-refresh-config を実行し、os-refresh-config が変更された設定を適用
 
 ![os-collect-config](https://wiki.openstack.org/w/images/thumb/9/92/Os-collect-config-and-friends.svg/990px-Os-collect-config-and-friends.svg.png "os-collect-config")
-
+(図は https://wiki.openstack.org/wiki/OsCollectConfig より引用)
 
 ## まめちしき
 
