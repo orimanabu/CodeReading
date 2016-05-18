@@ -60,6 +60,8 @@ BaseVD.backup_volume() の self が cinder.volume.drivers.emc.scaleio.ScaleIODri
 
 ## class ScaleIODriver @volume/drivers/emc/scaleio.py には backup_volume() が定義されていないので、親クラスの (さらに親クラスの) 同メソッドが呼ばれる
 
+その中で \_attach_volume() を呼んでいる
+
 - BaseVD.backup_volume() @volume/driver.py
 
 ```
@@ -79,9 +81,9 @@ class BaseVD(object):
         (snip)
 ```
 
-が、ScaleIODriver クラスで同名の _attach_volume() が定義されているため、こちらが呼ばれる
+が、ScaleIODriver クラスで同名の \_attach_volume() が定義されているため、こちらが呼ばれる
 
-- ScaleIODriver._attach_volume @volume/drivers/emc/scaleio.py
+- ScaleIODriver.\_attach_volume @volume/drivers/emc/scaleio.py
 
 ```
 class ScaleIODriver(driver.VolumeDriver):
