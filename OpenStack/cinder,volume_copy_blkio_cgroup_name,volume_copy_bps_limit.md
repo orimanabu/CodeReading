@@ -9,6 +9,15 @@
 
 パラメータvolume_copy_blkio_cgroup_name, volume_copy_bps_limitを設定すると、cinder-volumeからのボリューム操作でcgroupsによる帯域制御ができそう。どの操作で効くか、EMC VNXバックエンドの場合はどうか、の観点で調査。
 
+## 結論
+
+パラメータvolume_copy_blkio_cgroup_name, volume_copy_bps_limitを使うと、下記場合にcgroupsによる帯域制御がかかる。
+
+- cinder migrate, cinder retype呼び出し時 (ドライバによってはハードウェアオフロードするので、その場合は関係にない)
+- イメージからボリュームを作成するとき
+- ボリュームをイメージとして保存するとき
+- ボリュームをゼロクリアするとき
+
 # パラメータの定義・初期化
 
 ## ひとことまとめ
@@ -180,14 +189,14 @@ def _convert_image(prefix, source, dest, out_format, run_as_root=True):
     utils.execute(*cmd, run_as_root=run_as_root)
 ```
 
-## convert_image()のコールパス
+## convert_image()までのコールパス
 
 convert_image() @cinder/image/image_utils.py は2箇所から呼ばれている。
 
 - fetch_to_volume_format() @cinder/image/image_utils.py
 - upload_volume() @cinder/image/image_utils.py
 
-### fetch_to_volume_format()経由の場合
+### fetch_to_volume_format() @cinder/image/image_utils.py 経由の場合
 
 fetch_to_volume_format() @cinder/image/image_utils.py は2箇所から呼ばれている。
 
@@ -215,7 +224,7 @@ cinder createのAPI処理は、get_flow() @cinder/volume/flows/manager/create_vo
                     CreateVolumeOnFinishTask(db, "create.end"))
 ```
 
-### upload_volume()経由の場合
+### upload_volume() @cinder/image/image_utils.py 経由の場合
 
 upload_volume() @cinder/image/image_utils.py は下記の順で呼び出される。
 
@@ -257,27 +266,38 @@ def _copy_volume(prefix, srcstr, deststr, size_in_m, blocksize, sync=False,
     execute(*cmd, run_as_root=True)
 ```
 
-## copy_volume()のコールパス
+## copy_volume()のまでコールパス
+
+copy_volume() @cinder/volume/utils.py は次の3箇所から呼ばれている。
 
 - fetch_to_volume_format() @cinder/image/image_utils.py
-
-convert_volume()と同様のパス。
-convert_volume()中で、qemu-imgがない場合にddでそのままコピーするパスで呼ばれる。
-
 - BaseVD.copy_volume_data() @cinder/volume/driver.py
+- clear_volume() volume/utils.py
 
-VolumeAdminController._migrate_volume() @cinder/api/contrib/admin_actions.py
-VolumeManager.migrate_volume() @cinder/volume/manager.py
-VolumeManager._migrate_volume_generic() @cinder/volume/manager.py
+### fetch_to_volume_format() @cinder/image/image_utils.py 経由の場合
+
+  convert_volume()と同様のパス。
+  convert_volume()中で、qemu-imgがない場合にddでそのままコピーするパスで呼ばれる。
+
+### BaseVD.copy_volume_data() @cinder/volume/driver.py 経由の場合
+
+下記順に呼ばれる。
+
+* VolumeManager.retype() @cinder/volume/manager.py
+* VolumeManager.migrate_volume() @cinder/volume/manager.py
+* VolumeManager._migrate_volume_generic() @cinder/volume/manager.py
+* BaseVD.copy_volume_data() @cinder/volume/driver.py
+
+cinder migration時はVolumeManager.migrate_volume()が、cinder retype時はVolumeManager.retype()に来る。
 
 Volume Action: "os-migrate_volume"
 
-- clear_volume() volume/utils.py
+### clear_volume() volume/utils.py 経由の場合
 
 /dev/zeroで埋めるときに呼ばれる。2つのドライバで使用。
 
-  - BlockDeviceDriver.delete_volume() @cinder/volume/drivers/block_device.py
-  - LVMVolumeDriver.delete_volume() @cinder/volume/drivers/lvm.py
+* BlockDeviceDriver.delete_volume() @cinder/volume/drivers/block_device.py
+* LVMVolumeDriver.delete_volume() @cinder/volume/drivers/lvm.py
 
 
 # EMC VNX
@@ -350,9 +370,3 @@ class VolumeDriver(ConsistencyGroupVD, TransferVD, ManageableVD, ExtendVD,
 
 最終的に、BaseVDにたどり着く。
 
-
-
-
-class EMCVnxCliBase(object):
-class EMCVnxCliPool(EMCVnxCliBase):
-class EMCVnxCliArray(EMCVnxCliBase):
