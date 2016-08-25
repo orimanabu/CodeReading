@@ -12,20 +12,17 @@
 ## 結論
 
 パラメータvolume_copy_blkio_cgroup_name, volume_copy_bps_limitを使うと、下記場合にcgroupsによる帯域制御がかかる。
+ドライバによってはハードウェアオフロードするので、その場合は関係にない。
 
-- cinder migrate, cinder retype呼び出し時 (ドライバによってはハードウェアオフロードするので、その場合は関係にない)
+- cinder migrate, cinder retype呼び出し時
 - イメージからボリュームを作成するとき
 - ボリュームをイメージとして保存するとき
 - ボリュームをゼロクリアするとき
 
 # パラメータの定義・初期化
 
-## ひとことまとめ
-
 class BlkioCGroupのインスタンスにパラメータvolume_copy_blkio_cgroup_name, volume_copy_bps_limitを格納し、Throttle.set_default()に渡す。
 これを後でThrottle.get_default()で取り出して使う。
-
-## 詳細
 
 ### パラメータ定義
 
