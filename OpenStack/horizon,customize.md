@@ -115,39 +115,39 @@ HorizonからのAPIコールの認可設定。
 
 1. "Orchestration"→"Stacks"のパネル
 
-"Orchestration"→"Stacks"のパネルは、\_1620\_project\_stacks\_panel.pyで定義されている。
-このファイルを\_99\_disable\_project\_resource\_types\_panel.pyという名前でコピーし、末尾に"REMOVE_PANEL = True"を追記する。
+  "Orchestration"→"Stacks"のパネルは、\_1620\_project\_stacks\_panel.pyで定義されている。
+  このファイルを\_99\_disable\_project\_resource\_types\_panel.pyという名前でコピーし、末尾に"REMOVE_PANEL = True"を追記する。
 
-```
-[root@osp7ps-controller01 enabled]# diff -u _1620_project_stacks_panel.py _99_disable_project_stacks_panel.py
---- _1620_project_stacks_panel.py       2016-06-03 05:05:51.000000000 +0900
-+++ _99_disable_project_stacks_panel.py 2016-11-16 12:20:16.166270202 +0900
-@@ -7,3 +7,5 @@
+  ```
+  [root@osp7ps-controller01 enabled]# diff -u _1620_project_stacks_panel.py _99_disable_project_stacks_panel.py
+  --- _1620_project_stacks_panel.py       2016-06-03 05:05:51.000000000 +0900
+  +++ _99_disable_project_stacks_panel.py 2016-11-16 12:20:16.166270202 +0900
+  @@ -7,3 +7,5 @@
 
- # Python panel class of the PANEL to be added.
- ADD_PANEL = 'openstack_dashboard.dashboards.project.stacks.panel.Stacks'
-+
-+REMOVE_PANEL = True
-[root@osp7ps-controller01 enabled]#
-```
+   # Python panel class of the PANEL to be added.
+   ADD_PANEL = 'openstack_dashboard.dashboards.project.stacks.panel.Stacks'
+  +
+  +REMOVE_PANEL = True
+  [root@osp7ps-controller01 enabled]#
+  ```
 
 2. "Orchestration"→"Resource Types"のパネル
 
-"Orchestration"→"Resource Types"のパネルは、\_1630\_project\_resource\_types\_panel.pyで定義されている。
-このファイルを\_99\_disable\_project\_resource\_types\_panel.pyという名前でコピーし、末尾に"REMOVE_PANEL = True"を追記する。
+  "Orchestration"→"Resource Types"のパネルは、\_1630\_project\_resource\_types\_panel.pyで定義されている。
+  このファイルを\_99\_disable\_project\_resource\_types\_panel.pyという名前でコピーし、末尾に"REMOVE_PANEL = True"を追記する。
 
-```
-[root@osp7ps-controller01 enabled]# diff -u _1630_project_resource_types_panel.py _99_disable_project_resource_types_panel.py
---- _1630_project_resource_types_panel.py       2016-06-03 05:05:51.000000000 +0900
-+++ _99_disable_project_resource_types_panel.py 2016-11-16 12:22:00.015642964 +0900
-@@ -8,3 +8,5 @@
- # Python panel class of the PANEL to be added.
- ADD_PANEL = ('openstack_dashboard.dashboards.project.'
-              'stacks.resource_types.panel.ResourceTypes')
-+
-+REMOVE_PANEL = True
-[root@osp7ps-controller01 enabled]#
-```
+  ```
+  [root@osp7ps-controller01 enabled]# diff -u _1630_project_resource_types_panel.py _99_disable_project_resource_types_panel.py
+  --- _1630_project_resource_types_panel.py       2016-06-03 05:05:51.000000000 +0900
+  +++ _99_disable_project_resource_types_panel.py 2016-11-16 12:22:00.015642964 +0900
+  @@ -8,3 +8,5 @@
+   # Python panel class of the PANEL to be added.
+   ADD_PANEL = ('openstack_dashboard.dashboards.project.'
+                'stacks.resource_types.panel.ResourceTypes')
+  +
+  +REMOVE_PANEL = True
+  [root@osp7ps-controller01 enabled]#
+  ```
 
 3. サービス再起動
 
