@@ -138,16 +138,16 @@ Migrating
 
 - API.resize() @compute/api.py
 
-```
+```python
         current_instance_type = instance.get_flavor()
 ```
 
-```
+```python
             new_instance_type = flavors.get_flavor_by_flavor_id(
                     flavor_id, read_deleted="no")
 ```
 
-```
+```python
         scheduler_hint = {'filter_properties': filter_properties}
         self.compute_task_api.resize_instance(context, instance,
                 extra_instance_updates, scheduler_hint=scheduler_hint,
@@ -156,7 +156,7 @@ Migrating
                 clean_shutdown=clean_shutdown)
 ```
 
-```
+```python
     def __init__(self, image_api=None, network_api=None, volume_api=None,
 
 (snip)
@@ -165,7 +165,7 @@ Migrating
 ```
 
 (ComputeTaskAPI() @conductor/\_\_init\_\_.py)
-```
+```python
 from nova.conductor import api as conductor_api
 
 (snip)
@@ -181,7 +181,7 @@ def ComputeTaskAPI(*args, **kwargs):
 
 - ComputeTaskAPI.resize\_instance() @conductor/api.py
 
-```
+```python
 from nova.conductor import rpcapi
 
 (snip)
