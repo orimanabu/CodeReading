@@ -205,7 +205,7 @@ from nova.conductor import rpcapi
 
 - ComputeTaskAPI.resize\_instance() @conductor/rpcapi.py (client side)
 
-```
+```python
     def migrate_server(self, context, instance, scheduler_hint, live, rebuild,
                   flavor, block_migration, disk_over_commit,
                   reservations=None, clean_shutdown=True, request_spec=None):
@@ -235,7 +235,7 @@ from nova.conductor import rpcapi
         return cctxt.call(context, 'migrate_server', **kw)
 ```
 
-```
+```python
 from nova import rpc
 
 (snip)
@@ -251,7 +251,7 @@ from nova import rpc
 
 (get_client() @rpc.py)
 
-```
+```python
 import oslo_messaging as messaging
 
 (snip)
@@ -267,7 +267,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 (RPCClient.prepare() @../oslo_messaging/rpc/client.py)
 
-```
+```python
         return _CallContext._prepare(self,
                                      exchange, topic, namespace,
                                      version, server, fanout,
@@ -276,7 +276,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 (\_CallContext.\_prepare() @../oslo_messaging/rpc/client.py)
 
-```
+```python
     def _prepare(cls, base,
                  exchange=_marker, topic=_marker, namespace=_marker,
                  version=_marker, server=_marker, fanout=_marker,
@@ -315,7 +315,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 (\_CallContext.cast() @../oslo_messaging/rpc/client.py)
 
-```
+```python
     def call(self, ctxt, method, **kwargs):
         """Invoke a method and wait for a reply. See RPCClient.call()."""
         if self.target.fanout:
@@ -343,7 +343,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeTaskManager.migrate\_server() @conductor/manager.py
 
-```
+```python
     def migrate_server(self, context, instance, scheduler_hint, live, rebuild,
             flavor, block_migration, disk_over_commit, reservations=None,
             clean_shutdown=True, request_spec=None):
@@ -375,14 +375,14 @@ def get_client(target, version_cap=None, serializer=None):
 ```
 
   ちなみにこの関数はlive migrationのときも呼ばれる。resizeのときは
-```
+```python
         self.conductor_compute_rpcapi.migrate_server(
             context, instance, scheduler_hint, live=False, rebuild=False,
             flavor=flavor, block_migration=None, disk_over_commit=None,
             reservations=reservations, clean_shutdown=clean_shutdown)
 ```
   live migrationのときは
-```
+```python
         scheduler_hint = {'host': host_name}
         self.conductor_compute_rpcapi.migrate_server(
             context, instance, scheduler_hint, True, False, None,
@@ -392,7 +392,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeTaskManager.\_cold\_migrate() @conductor/manager.py
 
-```
+```python
     def _cold_migrate(self, context, instance, flavor, filter_properties,
                       reservations, clean_shutdown):
         image = utils.get_image_from_system_metadata(
@@ -410,7 +410,7 @@ def get_client(target, version_cap=None, serializer=None):
 (snip)
 ```
 
-```
+```python
     def _build_cold_migrate_task(self, context, instance, flavor,
                                  filter_properties, request_spec, reservations,
                                  clean_shutdown):
@@ -423,7 +423,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - TaskBase.execute() @conductor/tasks/base.py
 
-```
+```python
     def execute(self):
         """Run task's logic, written in _execute() method
         """
@@ -432,7 +432,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - MigrationTask._execute() @conductor/tasks/migrate.py
 
-```
+```python
     def _execute(self):
         image = self.request_spec.get('image')
         self.quotas = objects.Quotas.from_reservations(self.context,
@@ -463,7 +463,7 @@ def get_client(target, version_cap=None, serializer=None):
             clean_shutdown=self.clean_shutdown)
 ```
 
-```
+```python
     def __init__(self, context, instance, flavor, filter_properties,
 
 (snip)
@@ -473,7 +473,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeManager.prep\_resize() @compute/rpcapi.py
 
-```
+```python
     def prep_resize(self, ctxt, image, instance, instance_type, host,
                     reservations=None, request_spec=None,
                     filter_properties=None, node=None,
@@ -498,7 +498,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeManager.prep\_resize() @compute/manager.py
 
-```
+```python
     def prep_resize(self, context, image, instance, instance_type,
                     reservations, request_spec, filter_properties, node,
                     clean_shutdown):
@@ -556,7 +556,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeManager.\_prep\_resize() @compute/manager.py
 
-```
+```python
     def _prep_resize(self, context, image, instance, instance_type,
             quotas, request_spec, filter_properties, node,
             clean_shutdown=True):
@@ -609,7 +609,7 @@ def get_client(target, version_cap=None, serializer=None):
 - ComputeManager.\_finish\_resize() @compute/manager.py
 
   なんか怪しそう
-```
+```python
         if old_instance_type_id != new_instance_type_id:
             instance_type = instance.get_flavor('new')
             self._set_instance_info(instance, instance_type)
@@ -631,7 +631,7 @@ def get_client(target, version_cap=None, serializer=None):
 
 ComputeManager.\_finish\_resize() @compute/manager.py で呼ばれている ComputeManager.\_set\_instance\_info() @compute/manager.py。
 
-```
+```python
     def _set_instance_info(instance, instance_type):
         instance.instance_type_id = instance_type.id
         instance.memory_mb = instance_type.memory_mb
@@ -643,7 +643,7 @@ ComputeManager.\_finish\_resize() @compute/manager.py で呼ばれている Comp
 
 LibvirtDriver.finish\_migration() @virt/libvirt/driver.py で呼ばれる LibvirtDriver.\_get\_guest\_xml() @virt/libvirt/driver.py
 
-```
+```python
     def _get_guest_xml(self, context, instance, network_info, disk_info,
                        image_meta, rescue=None,
                        block_device_info=None, write_to_disk=False):
@@ -681,14 +681,14 @@ LibvirtDriver.finish\_migration() @virt/libvirt/driver.py で呼ばれる Libvir
 これは結構長い。
 この中でlibvirtのXMLを作っている。PCI関連はここ:
 
-```
+```python
         pci_devs = pci_manager.get_instance_pci_devs(instance, 'all')
 
         guest_numa_config = self._get_guest_numa_config(
             instance.numa_topology, flavor, pci_devs, allowed_cpus, image_meta)
 ```
 
-```
+```python
         if virt_type in ('xen', 'qemu', 'kvm'):
             for pci_dev in pci_manager.get_instance_pci_devs(instance):
                 guest.add_device(self._get_guest_pci_device(pci_dev))
@@ -696,7 +696,7 @@ LibvirtDriver.finish\_migration() @virt/libvirt/driver.py で呼ばれる Libvir
 
 get\_instance\_pci\_devs() @pci/manager.py
 
-```
+```python
 def get_instance_pci_devs(inst, request_id=None):
     """Get the devices allocated to one or all requests for an instance.
 
@@ -737,7 +737,7 @@ def get_instance_pci_devs(inst, request_id=None):
 - FilterScheduler.select\_destinations() @scheduler/filter\_scheduler.py
 - FilterScheduler.\_schedule() @scheduler/filter\_scheduler.py
 
-```
+```python
         for num in range(num_instances):
             # Filter local hosts based on requirements ...
             hosts = self.host_manager.get_filtered_hosts(hosts,
@@ -756,7 +756,7 @@ def get_instance_pci_devs(inst, request_id=None):
 
   self.host_managerは、FilterSchedulerの親クラスである class Scheduler @scheduler/driver.py で初期化されている。
 
-```
+```python
 class Scheduler(object):
     """The base class that all Scheduler classes should inherit from."""
 
@@ -772,14 +772,14 @@ class Scheduler(object):
 
 - HostManager.get\_filtered\_hosts() @scheduler/host_manager.py
 
-```
+```python
         return self.filter_handler.get_filtered_objects(filters,
                 hosts, spec_obj, index)
 ```
 
 filter_handlerは、class HostFilterHandler @scheduler/filters/\_\_init\_\_.py。
 
-```
+```python
 class BaseHostFilter(filters.BaseFilter):
     """Base class for host filters."""
     def _filter_one(self, obj, filter_properties):
@@ -799,7 +799,7 @@ class HostFilterHandler(filters.BaseFilterHandler):
 ```
 
 親クラスは class BaseFilter @filter.py。
-```
+```python
 class BaseFilter(object):
     """Base class for all filter classes."""
     def _filter_one(self, obj, spec_obj):
