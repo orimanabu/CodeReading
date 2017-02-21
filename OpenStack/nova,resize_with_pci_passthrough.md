@@ -158,6 +158,7 @@ Migrating
 
 ```python
     def __init__(self, image_api=None, network_api=None, volume_api=None,
+                 security_group_api=None, skip_policy_check=False, **kwargs):
 
 (snip)
 
@@ -602,14 +603,99 @@ def get_client(target, version_cap=None, serializer=None):
 
 - ComputeAPI.resize\_instance() @compute/rpcapi.py (client side)
 
+```python
+    def resize_instance(self, ctxt, instance, migration, image, instance_type,
+                        reservations=None, clean_shutdown=True):
+        msg_args = {'instance': instance, 'migration': migration,
+                    'image': image, 'reservations': reservations,
+                    'instance_type': instance_type,
+                    'clean_shutdown': clean_shutdown,
+        }
+        version = '4.1'
+        if not self.client.can_send_version(version):
+            msg_args['instance_type'] = objects_base.obj_to_primitive(
+                                            instance_type)
+            version = '4.0'
+        cctxt = self.client.prepare(server=_compute_host(None, instance),
+                version=version)
+        cctxt.cast(ctxt, 'resize_instance', **msg_args)
+```
+
 - ComputeManager.resize\_instance() @compute/manager.py
 
+```python
+            # TODO(chaochin) Remove this until v5 RPC API
+            # Code downstream may expect extra_specs to be populated since it
+            # is receiving an object, so lookup the flavor to ensure this.
+            if (not instance_type or
+                not isinstance(instance_type, objects.Flavor)):
+                instance_type = objects.Flavor.get_by_id(
+                    context, migration['new_instance_type_id'])
+
+(snip)
+
+            self.compute_rpcapi.finish_resize(context, instance,
+                    migration, image, disk_info,
+                    migration.dest_compute, reservations=quotas.reservations)
+```
+
 - ComputeAPI.finish\_resize() @compute/rpcapi.py (client side)
+
+```python
+    def finish_resize(self, ctxt, instance, migration, image, disk_info,
+            host, reservations=None):
+        version = '4.0'
+        cctxt = self.client.prepare(server=host, version=version)
+        cctxt.cast(ctxt, 'finish_resize',
+                   instance=instance, migration=migration,
+                   image=image, disk_info=disk_info, reservations=reservations)
+```
+
 - ComputeManager.finish\_resize() @compute/manager.py
+
+```python
+    def finish_resize(self, context, disk_info, image, instance,
+                      reservations, migration):
+        """Completes the migration process.
+
+        Sets up the newly transferred disk and turns on the instance at its
+        new host machine.
+
+        """
+        quotas = objects.Quotas.from_reservations(context,
+                                                  reservations,
+                                                  instance=instance)
+        try:
+            image_meta = objects.ImageMeta.from_dict(image)
+            self._finish_resize(context, instance, migration,
+                                disk_info, image_meta)
+            quotas.commit()
+        except Exception:
+            LOG.exception(_LE('Setting instance vm_state to ERROR'),
+                          instance=instance)
+            with excutils.save_and_reraise_exception():
+                try:
+                    quotas.rollback()
+                except Exception:
+                    LOG.exception(_LE("Failed to rollback quota for failed "
+                                      "finish_resize"),
+                                  instance=instance)
+                self._set_instance_obj_error_state(context, instance)
+```
+
 - ComputeManager.\_finish\_resize() @compute/manager.py
 
-  なんか怪しそう
 ```python
+        old_instance_type_id = migration['old_instance_type_id']
+        new_instance_type_id = migration['new_instance_type_id']
+        old_instance_type = instance.get_flavor()
+        # NOTE(mriedem): Get the old_vm_state so we know if we should
+        # power on the instance. If old_vm_state is not set we need to default
+        # to ACTIVE for backwards compatibility
+        old_vm_state = instance.system_metadata.get('old_vm_state',
+                                                    vm_states.ACTIVE)
+        instance.old_flavor = old_instance_type
+
         if old_instance_type_id != new_instance_type_id:
             instance_type = instance.get_flavor('new')
             self._set_instance_info(instance, instance_type)
@@ -620,12 +706,126 @@ def get_client(target, version_cap=None, serializer=None):
         instance.apply_migration_context()
 ```
 
+```python
+            self.driver.finish_migration(context, migration, instance,
+                                         disk_info,
+                                         network_info,
+                                         image_meta, resize_instance,
+                                         block_device_info, power_on)
+```
+
 - LibvirtDriver.finish_migration() @virt/libvirt/driver.py
+
+```python
+        xml = self._get_guest_xml(context, instance, network_info,
+                                  block_disk_info, image_meta,
+                                  block_device_info=block_device_info,
+                                  write_to_disk=True)
+```
+
+```python
+        # NOTE(mriedem): vifs_already_plugged=True here, regardless of whether
+        # or not we've migrated to another host, because we unplug VIFs locally
+        # and the status change in the port might go undetected by the neutron
+        # L2 agent (or neutron server) so neutron may not know that the VIF was
+        # unplugged in the first place and never send an event.
+        self._create_domain_and_network(context, xml, instance, network_info,
+                                        block_disk_info,
+                                        block_device_info=block_device_info,
+                                        power_on=power_on,
+                                        vifs_already_plugged=True)
+```
+
 - LibvirtDriver.\_create\_domain\_and\_network() @virt/libvirt/driver.py
+
+```python
+        pause = bool(events)
+        guest = None
+        try:
+            with self.virtapi.wait_for_instance_event(
+                    instance, events, deadline=timeout,
+                    error_callback=self._neutron_failed_callback):
+                self.plug_vifs(instance, network_info)
+                self.firewall_driver.setup_basic_filtering(instance,
+                                                           network_info)
+                self.firewall_driver.prepare_instance_filter(instance,
+                                                             network_info)
+                with self._lxc_disk_handler(instance, instance.image_meta,
+                                            block_device_info, disk_info):
+                    guest = self._create_domain(
+                        xml, pause=pause, power_on=power_on)
+
+                self.firewall_driver.apply_instance_filter(instance,
+                                                           network_info)
+```
+
 - LibvirtDriver.\_create\_domain() @compute/manager.py
+
+```python
+    # TODO(sahid): Consider renaming this to _create_guest.
+    def _create_domain(self, xml=None, domain=None,
+                       power_on=True, pause=False):
+        """Create a domain.
+
+        Either domain or xml must be passed in. If both are passed, then
+        the domain definition is overwritten from the xml.
+
+        :returns guest.Guest: Guest just created
+        """
+        if xml:
+            guest = libvirt_guest.Guest.create(xml, self._host)
+        else:
+            guest = libvirt_guest.Guest(domain)
+
+        if power_on or pause:
+            guest.launch(pause=pause)
+
+        if not utils.is_neutron():
+            guest.enable_hairpin()
+
+        return guest
+```
+
 - Guest.create() @virt/libvirt/guest.py
+
+```python
+    def create(cls, xml, host):
+        """Create a new Guest
+
+        :param xml: XML definition of the domain to create
+        :param host: host.Host connection to define the guest on
+
+        :returns guest.Guest: Guest ready to be launched
+        """
+        try:
+            # TODO(sahid): Host.write_instance_config should return
+            # an instance of Guest
+            domain = host.write_instance_config(xml)
+        except Exception:
+            with excutils.save_and_reraise_exception():
+                LOG.error(_LE('Error defining a domain with XML: %s'),
+                          encodeutils.safe_decode(xml))
+        return cls(domain)
+```
+
 - Host.write\_instance\_config() @virt/libvirt/host.py
+
+```python
+    def write_instance_config(self, xml):
+        """Defines a domain, but does not start it.
+
+        :param xml: XML domain definition of the guest.
+
+        :returns: a virDomain instance
+        """
+        return self.get_connection().defineXML(xml)
+```
+
 - Host.get_connection().defineXML() @virt/libvirt/host.py
+
+```python
+
+```
 
 ## 「怪しそう」なところ
 
