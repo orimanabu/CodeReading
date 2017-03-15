@@ -7,9 +7,8 @@
 
 ## 動機
 
-XFSのジャーナルログのコミット間隔を調べる。
-
-コンソールに出るエラーメッセージは以下のとおり。
+ルートファイルシステムがXFSなシステムで、OS領域のストレージが見えなくなると、コンソールにエラーメッセージが出て実質使えなくなる。
+コンソールに出るエラーメッセージはこんな感じ。
 
 ```
 [  335.780177] blk_update_request: I/O error, dev vda, sector 8208323
@@ -21,6 +20,9 @@ XFSのジャーナルログのコミット間隔を調べる。
 [  365.848319] XFS (vda1): xfs_log_force: error -5 returned.
 [  395.928291] XFS (vda1): xfs_log_force: error -5 returned.
 ```
+
+経験上、ジャーナルの定期コミットができなくなるとこういう症状になる。ストレージが見えなくなってどれくらい時間がたつとこの状況になるか、という観点で、XFSのジャーナルログのコミット間隔を調べる。
+
 
 ## 種明かし
 
@@ -462,7 +464,7 @@ realtime =none                   extsz=4096   blocks=0, rtextents=0
 まず xfsbufd\_centisecs。
 
 ```
-% grep -B1 -A7 -R xfsbufd\_centisecs fs/xfs
+% grep -B1 -A7 -R xfsbufd_centisecs fs/xfs
 fs/xfs/xfs_sysctl.c-    {
 fs/xfs/xfs_sysctl.c:            .procname       = "xfsbufd_centisecs",
 fs/xfs/xfs_sysctl.c-            .data           = &xfs_params.xfs_buf_timer.val,
