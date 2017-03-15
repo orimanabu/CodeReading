@@ -7,6 +7,8 @@
 
 ## 動機
 
+XFSのジャーナルログのコミット間隔を調べる。
+
 コンソールに出るエラーメッセージは以下のとおり。
 
 ```
@@ -19,8 +21,6 @@
 [  365.848319] XFS (vda1): xfs_log_force: error -5 returned.
 [  395.928291] XFS (vda1): xfs_log_force: error -5 returned.
 ```
-
-XFSのジャーナルログのコミット間隔を調べる。
 
 ## 種明かし
 
@@ -36,7 +36,7 @@ http://serverfault.com/questions/646106/what-is-the-default-journal-commit-inter
 xfs_do_force_shutdown(0x2) called from line 1203 of file fs/xfs/xfs_log.c.
 ```
 
-と書いてくれている。
+と書いてくれているのでここから見てみる。
 
 - xlog\_iodone() @fs/xfs/xfs\_log.c
 
@@ -67,7 +67,7 @@ xlog_iodone(xfs_buf_t *bp)
 
                 xfs_buf_ioerror_alert(bp, __func__);
                 xfs_buf_stale(bp);
-                xfs_force_shutdown(l->l_mp, SHUTDOWN_LOG_IO_ERROR);
+                xfs_force_shutdown(l->l_mp, SHUTDOWN_LOG_IO_ERROR); // XXX ここが1203行目
                 /*
                  * This flag will be propagated to the trans-committed
                  * callback routines to let them know that the log-commit
@@ -92,13 +92,15 @@ xlog_iodone(xfs_buf_t *bp)
 }
 ```
 
-1行上のログであるところの
+(ここから余談)
+
+I/O完了時に呼ばれる関数っぽい。1行上のログであるところの
 
 ```
 metadata I/O error: block 0x7d37c3 ("xlog_iodone") error 5 numblks 64
 ```
 
-のメッセージは xfs\_force\_shutdown() の2行上の xfs\_buf\_ioerror\_alert() で出している。
+のメッセージは、 xfs\_force\_shutdown() の2行上の xfs\_buf\_ioerror\_alert() で出している。
 
 - xfs\_buf\_ioerror\_alert() @fs/xfs/xfs\_buf.c
 
@@ -114,7 +116,9 @@ xfs_buf_ioerror_alert(
 }
 ```
 
-xlog\_iodone() は xlog\_alloc\_log() から呼ばれる。
+(余談ここまで)
+
+さて、xlog\_iodone() は xlog\_alloc\_log() で登録されている。
 
 - xlog\_alloc\_log() @fs/xfs/xfs\_log.c
 
@@ -156,7 +160,15 @@ xlog_alloc_log(
 (snip)
 ```
 
-xlog\_alloc\_log() は xfs\_log\_mount() から呼ばれる。
+コメントからは、ログ関連の初期化関数っぽく見える。
+
+xlog\_alloc\_log() は、ファイルシステムをマウントしてから
+
+  - xfs\_mountfs()
+  - xfs\_log\_mount()
+  - xlog\_alloc\_log() 
+
+の順番で呼ばれることがわかる。このことからも、xlog\_alloc\_log() でログ関連の初期化をしているのは間違いなさそう。
 
 - xfs\_log\_mount() @fs/xfs/xfs\_log.c
 
@@ -185,8 +197,6 @@ xfs_log_mount(
 
 (snip)
 ```
-
-xfs\_log\_mount() は xfs\_mountfs() から呼ばれる。
 
 - xfs\_mountfs() @fs/xfs/xfs\_mount.c
 
