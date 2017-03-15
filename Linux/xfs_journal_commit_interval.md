@@ -92,9 +92,11 @@ xlog_iodone(xfs_buf_t *bp)
 }
 ```
 
+I/O完了時に呼ばれる関数っぽい。
+
 (ここから余談)
 
-I/O完了時に呼ばれる関数っぽい。1行上のログであるところの
+1行上のログであるところの
 
 ```
 metadata I/O error: block 0x7d37c3 ("xlog_iodone") error 5 numblks 64
@@ -275,7 +277,7 @@ xlog_alloc_log(
 (snip)
 ```
 
-冒頭で struct xlog 用のメモリを確保し、INIT\_DELAYED\_WORK() で xfs\_log\_worker() を登録している。
+xlog\_alloc\_log() は、最初に struct xlog 用のメモリを確保し、INIT\_DELAYED\_WORK() で xfs\_log\_worker() を登録している。
 
 - xfs\_log\_worker() @fs/xfs/xfs\_log.c
 
@@ -334,6 +336,7 @@ xfs_log_work_queue(
 ```
 
 queue\_delayed\_work() の引き数の "msecs\_to\_jiffies(xfs\_syncd\_centisecs * 10)" が怪しい。
+queue\_delayed\_work() は workqueue 用のインライン関数。
 
 - queue\_delayed\_work() @include/linux/workqueue.h
 
@@ -354,13 +357,17 @@ static inline bool queue_delayed_work(struct workqueue_struct *wq,
 }
 ```
 
+xfs\_syncd\_centisecs は xfs_params のメンバを参照するマクロ。
+
 - fs/xfs/xfs_linux.h
 
 ```c
 #define xfs_syncd_centisecs     xfs_params.syncd_timer.val
 ```
 
-xfs_params は sysctl のパラメータっぽい。
+xfs_params は sysctl(8) のパラメータっぽい。
+
+- fs/xfs/xfs_globals.c
 
 ```c
 /*
@@ -390,18 +397,18 @@ xfs_param_t xfs_params = {
 };
 ```
 
-syncd_timer のデフォルト値は 30centisecs (30秒)。
-コマンドでも確認してみる。
+syncd_timer のデフォルト値は 30centisecs (30秒) に見える。
+せっかくなのでコマンドでも確認してみる。
 
-```
-[root@osp10-ctrl01 nova]# sysctl fs.xfs.xfssyncd_centisecs
+```shell
+[root@osp10-ctrl01 ~]# sysctl fs.xfs.xfssyncd_centisecs
 fs.xfs.xfssyncd_centisecs = 3000
 ```
 
 後学のために他のパラメータも表示しておく。
 
-```
-[root@osp10-ctrl01 nova]# sysctl fs.xfs
+```shell
+[root@osp10-ctrl01 ~]# sysctl fs.xfs
 fs.xfs.age_buffer_centisecs = 1500
 fs.xfs.error_level = 3
 fs.xfs.filestream_centisecs = 3000
@@ -421,8 +428,8 @@ fs.xfs.xfssyncd_centisecs = 3000
 [root@osp10-ctrl01 nova]#
 ```
 
-```
-[root@osp10-ctrl01 nova]# xfs_info /dev/vda3
+```shell
+[root@osp10-ctrl01 ~]# xfs_info /dev/vda3
 meta-data=/dev/vda3              isize=512    agcount=47, agsize=336116 blks
          =                       sectsz=512   attr=2, projid32bit=1
          =                       crc=1        finobt=0 spinodes=0
