@@ -442,3 +442,100 @@ realtime =none                   extsz=4096   blocks=0, rtextents=0
 [root@osp10-ctrl01 nova]#
 ```
 
+ちなみに、Documentation/filesystems/xfs.txt には centisecs なパラメータが3つ載っている。
+
+```
+  fs.xfs.xfssyncd_centisecs     (Min: 100  Default: 3000  Max: 720000)
+        The interval at which the xfssyncd thread flushes metadata
+        out to disk.  This thread will flush log activity out, and
+        do some processing on unlinked inodes.
+
+  fs.xfs.xfsbufd_centisecs      (Min: 50  Default: 100  Max: 3000)
+        The interval at which xfsbufd scans the dirty metadata buffers list.
+
+  fs.xfs.age_buffer_centisecs   (Min: 100  Default: 1500  Max: 720000)
+        The age at which xfsbufd flushes dirty metadata buffers to disk.
+```
+
+他の2つも気になるところだけど、grepした限りではRHEL7では使われていないようだった。
+
+まず xfsbufd\_centisecs。
+
+```
+% grep -B1 -A7 -R xfsbufd\_centisecs fs/xfs
+fs/xfs/xfs_sysctl.c-    {
+fs/xfs/xfs_sysctl.c:            .procname       = "xfsbufd_centisecs",
+fs/xfs/xfs_sysctl.c-            .data           = &xfs_params.xfs_buf_timer.val,
+fs/xfs/xfs_sysctl.c-            .maxlen         = sizeof(int),
+fs/xfs/xfs_sysctl.c-            .mode           = 0644,
+fs/xfs/xfs_sysctl.c-            .proc_handler   = proc_dointvec_minmax,
+fs/xfs/xfs_sysctl.c-            .extra1         = &xfs_params.xfs_buf_timer.min,
+fs/xfs/xfs_sysctl.c-            .extra2         = &xfs_params.xfs_buf_timer.max
+fs/xfs/xfs_sysctl.c-    },
+```
+
+対応するメンバ名はxfs\_buf\_timer。
+
+```
+% grep -R xfs_buf_timer fs/xfs
+fs/xfs/xfs_globals.c:   .xfs_buf_timer  = {     100/2,          1*100,          30*100  },
+fs/xfs/xfs_sysctl.c:            .data           = &xfs_params.xfs_buf_timer.val,
+fs/xfs/xfs_sysctl.c:            .extra1         = &xfs_params.xfs_buf_timer.min,
+fs/xfs/xfs_sysctl.c:            .extra2         = &xfs_params.xfs_buf_timer.max
+fs/xfs/xfs_sysctl.h:    xfs_sysctl_val_t xfs_buf_timer; /* Interval between xfsbufd wakeups. */
+```
+
+実質使われていなさそう。
+
+次に age\_buffer\_centisecs。
+
+```
+% grep -B1 -A7 -R age_buffer_centisecs fs/xfs
+fs/xfs/xfs_sysctl.c-    {
+fs/xfs/xfs_sysctl.c:            .procname       = "age_buffer_centisecs",
+fs/xfs/xfs_sysctl.c-            .data           = &xfs_params.xfs_buf_age.val,
+fs/xfs/xfs_sysctl.c-            .maxlen         = sizeof(int),
+fs/xfs/xfs_sysctl.c-            .mode           = 0644,
+fs/xfs/xfs_sysctl.c-            .proc_handler   = proc_dointvec_minmax,
+fs/xfs/xfs_sysctl.c-            .extra1         = &xfs_params.xfs_buf_age.min,
+fs/xfs/xfs_sysctl.c-            .extra2         = &xfs_params.xfs_buf_age.max
+fs/xfs/xfs_sysctl.c-    },
+```
+
+対応するメンバ名はxfs\_buf\_age。
+
+```
+% grep -R xfs_buf_age fs/xfs
+fs/xfs/xfs_globals.c:   .xfs_buf_age    = {     1*100,          15*100,         7200*100},
+fs/xfs/xfs_sysctl.c:            .data           = &xfs_params.xfs_buf_age.val,
+fs/xfs/xfs_sysctl.c:            .extra1         = &xfs_params.xfs_buf_age.min,
+fs/xfs/xfs_sysctl.c:            .extra2         = &xfs_params.xfs_buf_age.max
+fs/xfs/xfs_sysctl.h:    xfs_sysctl_val_t xfs_buf_age;   /* Metadata buffer age before flush. */
+```
+
+こちらも使われていなさそう。
+
+ちなみにRHEL6だと両方使われているっぽかった。
+
+```
+% grep -R xfs_buf_timer ../rhel6/fs/xfs
+../rhel6/fs/xfs/linux-2.6/xfs_buf.c:            long    tout = xfs_buf_timer_centisecs * msecs_to_jiffies(10);
+../rhel6/fs/xfs/linux-2.6/xfs_globals.c:        .xfs_buf_timer  = {     100/2,          1*100,          30*100  },
+../rhel6/fs/xfs/linux-2.6/xfs_linux.h:#define xfs_buf_timer_centisecs   xfs_params.xfs_buf_timer.val
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .data           = &xfs_params.xfs_buf_timer.val,
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .extra1         = &xfs_params.xfs_buf_timer.min,
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .extra2         = &xfs_params.xfs_buf_timer.max
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.h: xfs_sysctl_val_t xfs_buf_timer; /* Interval between xfsbufd wakeups. */
+```
+
+```
+% grep -R xfs_buf_age ../rhel6/fs/xfs
+../rhel6/fs/xfs/linux-2.6/xfs_buf.c:    long            age = xfs_buf_age_centisecs * msecs_to_jiffies(10) + 1;
+../rhel6/fs/xfs/linux-2.6/xfs_buf.c:            long    age = xfs_buf_age_centisecs * msecs_to_jiffies(10);
+../rhel6/fs/xfs/linux-2.6/xfs_globals.c:        .xfs_buf_age    = {     1*100,          15*100,         7200*100},
+../rhel6/fs/xfs/linux-2.6/xfs_linux.h:#define xfs_buf_age_centisecs     xfs_params.xfs_buf_age.val
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .data           = &xfs_params.xfs_buf_age.val,
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .extra1         = &xfs_params.xfs_buf_age.min,
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.c:         .extra2         = &xfs_params.xfs_buf_age.max
+../rhel6/fs/xfs/linux-2.6/xfs_sysctl.h: xfs_sysctl_val_t xfs_buf_age;   /* Metadata buffer age before flush. */
+```
