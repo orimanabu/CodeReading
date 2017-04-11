@@ -746,6 +746,8 @@ qemuDomainBlockRebase(virDomainPtr dom, const char *path, const char *base,
 ```
 
 ```c
+/* bandwidth in bytes/s.  Caller must lock vm beforehand, and not
+ * access mirror afterwards.  */
 static int
 qemuDomainBlockCopyCommon(virDomainObjPtr vm,
                           virConnectPtr conn,
@@ -942,6 +944,7 @@ qemuDomainBlockCopyCommon(virDomainObjPtr vm,
 - src/qemu/qemu_monitor.c
 
 ```c
+/* Start a drive-mirror block job.  bandwidth is in bytes/sec.  */
 int
 qemuMonitorDriveMirror(qemuMonitorPtr mon,
                        const char *device, const char *file,
@@ -961,9 +964,10 @@ qemuMonitorDriveMirror(qemuMonitorPtr mon,
 }
 ```
 
-- src/qemu/qemu_monitor_json.c
+- src/qemu/qemu\_monitor\_json.c
 
 ```c
+/* speed is in bytes/sec */
 int
 qemuMonitorJSONDriveMirror(qemuMonitorPtr mon,
                            const char *device, const char *file,
@@ -1002,5 +1006,508 @@ qemuMonitorJSONDriveMirror(qemuMonitorPtr mon,
     virJSONValueFree(cmd);
     virJSONValueFree(reply);
     return ret;
+}
+```
+
+- src/qemu/qemu\_monitor\_json.c
+
+```c
+#define qemuMonitorJSONMakeCommand(cmdname, ...) \
+    qemuMonitorJSONMakeCommandRaw(false, cmdname, __VA_ARGS__)
+```
+
+```c
+/* Top-level commands and nested transaction list elements share a
+ * common structure for everything except the dictionary names.  */
+static virJSONValuePtr ATTRIBUTE_SENTINEL
+qemuMonitorJSONMakeCommandRaw(bool wrap, const char *cmdname, ...)
+{
+    virJSONValuePtr obj;
+    virJSONValuePtr jargs = NULL;
+    va_list args;
+
+    va_start(args, cmdname);
+
+    if (!(obj = virJSONValueNewObject()))
+        goto error;
+
+    if (virJSONValueObjectAppendString(obj, wrap ? "type" : "execute",
+                                       cmdname) < 0)
+        goto error;
+
+    if (virJSONValueObjectCreateVArgs(&jargs, args) < 0)
+        goto error;
+
+    if (jargs &&
+        virJSONValueObjectAppend(obj, wrap ? "data" : "arguments", jargs) < 0)
+        goto error;
+
+    va_end(args);
+
+    return obj;
+
+ error:
+    virJSONValueFree(obj);
+    virJSONValueFree(jargs);
+    va_end(args);
+    return NULL;
+}
+```
+
+```c
+static int
+qemuMonitorJSONCommand(qemuMonitorPtr mon,
+                       virJSONValuePtr cmd,
+                       virJSONValuePtr *reply)
+{
+    return qemuMonitorJSONCommandWithFd(mon, cmd, -1, reply);
+}
+```
+
+```c
+static int
+qemuMonitorJSONCommandWithFd(qemuMonitorPtr mon,
+                             virJSONValuePtr cmd,
+                             int scm_fd,
+                             virJSONValuePtr *reply)
+{
+    int ret = -1;
+    qemuMonitorMessage msg;
+    char *cmdstr = NULL;
+    char *id = NULL;
+
+    *reply = NULL;
+
+    memset(&msg, 0, sizeof(msg));
+
+    if (virJSONValueObjectHasKey(cmd, "execute") == 1) {
+        if (!(id = qemuMonitorNextCommandID(mon)))
+            goto cleanup;
+        if (virJSONValueObjectAppendString(cmd, "id", id) < 0) {
+            virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                           _("Unable to append command 'id' string"));
+            goto cleanup;
+        }
+    }
+
+    if (!(cmdstr = virJSONValueToString(cmd, false)))
+        goto cleanup;
+    if (virAsprintf(&msg.txBuffer, "%s\r\n", cmdstr) < 0)
+        goto cleanup;
+    msg.txLength = strlen(msg.txBuffer);
+    msg.txFD = scm_fd;
+
+    VIR_DEBUG("Send command '%s' for write with FD %d", cmdstr, scm_fd);
+
+    ret = qemuMonitorSend(mon, &msg);
+
+    VIR_DEBUG("Receive command reply ret=%d rxObject=%p",
+              ret, msg.rxObject);
+
+
+    if (ret == 0) {
+        if (!msg.rxObject) {
+            virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                           _("Missing monitor reply object"));
+            ret = -1;
+        } else {
+            *reply = msg.rxObject;
+        }
+    }
+
+ cleanup:
+    VIR_FREE(id);
+    VIR_FREE(cmdstr);
+    VIR_FREE(msg.txBuffer);
+
+    return ret;
+}
+```
+
+```c
+int
+qemuMonitorSend(qemuMonitorPtr mon,
+                qemuMonitorMessagePtr msg)
+{
+    int ret = -1;
+
+    /* Check whether qemu quit unexpectedly */
+    if (mon->lastError.code != VIR_ERR_OK) {
+        VIR_DEBUG("Attempt to send command while error is set %s",
+                  NULLSTR(mon->lastError.message));
+        virSetError(&mon->lastError);
+        return -1;
+    }
+
+    mon->msg = msg;
+    qemuMonitorUpdateWatch(mon);
+
+    PROBE(QEMU_MONITOR_SEND_MSG,
+          "mon=%p msg=%s fd=%d",
+          mon, mon->msg->txBuffer, mon->msg->txFD);
+
+    while (!mon->msg->finished) {
+        if (virCondWait(&mon->notify, &mon->parent.lock) < 0) {
+            virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                           _("Unable to wait on monitor condition"));
+            goto cleanup;
+        }
+    }
+
+    if (mon->lastError.code != VIR_ERR_OK) {
+        VIR_DEBUG("Send command resulted in error %s",
+                  NULLSTR(mon->lastError.message));
+        virSetError(&mon->lastError);
+        goto cleanup;
+    }
+
+    ret = 0;
+
+ cleanup:
+    mon->msg = NULL;
+    qemuMonitorUpdateWatch(mon);
+
+    return ret;
+}
+```
+
+# ここからqemuの世界
+
+- QMP (Qemu Machine Protocol)
+
+qemuインスタンスを外から制御するためのjsonベースのプロトコル
+
+## 'drive-mirror' QMP
+
+- qmp-commands.hx
+
+```
+    {
+        .name       = "drive-mirror",
+        .args_type  = "sync:s,device:B,target:s,speed:i?,mode:s?,format:s?,"
+                      "node-name:s?,replaces:s?,"
+                      "on-source-error:s?,on-target-error:s?,"
+                      "unmap:b?,"
+                      "granularity:i?,buf-size:i?",
+        .mhandler.cmd_new = qmp_marshal_drive_mirror,
+    },
+```
+
+```
+drive-mirror
+------------
+
+Start mirroring a block device's writes to a new destination. target
+specifies the target of the new image. If the file exists, or if it is
+a device, it will be used as the new destination for writes. If it does not
+exist, a new file will be created. format specifies the format of the
+mirror image, default is to probe if mode='existing', else the format
+of the source.
+
+Arguments:
+
+- "device": device name to operate on (json-string)
+- "target": name of new image file (json-string)
+- "format": format of new image (json-string, optional)
+- "node-name": the name of the new block driver state in the node graph
+               (json-string, optional)
+- "replaces": the block driver node name to replace when finished
+              (json-string, optional)
+- "mode": how an image file should be created into the target
+  file/device (NewImageMode, optional, default 'absolute-paths')
+- "speed": maximum speed of the streaming job, in bytes per second
+  (json-int)
+- "granularity": granularity of the dirty bitmap, in bytes (json-int, optional)
+- "buf-size": maximum amount of data in flight from source to target, in bytes
+  (json-int, default 10M)
+- "sync": what parts of the disk image should be copied to the destination;
+  possibilities include "full" for all the disk, "top" for only the sectors
+  allocated in the topmost image, or "none" to only replicate new I/O
+  (MirrorSyncMode).
+- "on-source-error": the action to take on an error on the source
+  (BlockdevOnError, default 'report')
+- "on-target-error": the action to take on an error on the target
+  (BlockdevOnError, default 'report')
+- "unmap": whether the target sectors should be discarded where source has only
+  zeroes. (json-bool, optional, default true)
+
+The default value of the granularity is the image cluster size clamped
+between 4096 and 65536, if the image format defines one.  If the format
+does not define a cluster size, the default value of the granularity
+is 65536.
+
+
+Example:
+
+-> { "execute": "drive-mirror", "arguments": { "device": "ide-hd0",
+                                               "target": "/some/place/my-image",
+                                               "sync": "full",
+                                               "format": "qcow2" } }
+<- { "return": {} }
+
+```
+
+- qapi/block-core.json
+
+```
+##
+# @drive-mirror
+#
+# Start mirroring a block device's writes to a new destination.
+#
+# @device:  the name of the device whose writes should be mirrored.
+#
+# @target: the target of the new image. If the file exists, or if it
+#          is a device, the existing file/device will be used as the new
+#          destination.  If it does not exist, a new file will be created.
+#
+# @format: #optional the format of the new destination, default is to
+#          probe if @mode is 'existing', else the format of the source
+#
+# @node-name: #optional the new block driver state node name in the graph
+#             (Since 2.1)
+#
+# @replaces: #optional with sync=full graph node name to be replaced by the new
+#            image when a whole image copy is done. This can be used to repair
+#            broken Quorum files. (Since 2.1)
+#
+# @mode: #optional whether and how QEMU should create a new image, default is
+#        'absolute-paths'.
+#
+# @speed:  #optional the maximum speed, in bytes per second
+#
+# @sync: what parts of the disk image should be copied to the destination
+#        (all the disk, only the sectors allocated in the topmost image, or
+#        only new I/O).
+#
+# @granularity: #optional granularity of the dirty bitmap, default is 64K
+#               if the image format doesn't have clusters, 4K if the clusters
+#               are smaller than that, else the cluster size.  Must be a
+#               power of 2 between 512 and 64M (since 1.4).
+#
+# @buf-size: #optional maximum amount of data in flight from source to
+#            target (since 1.4).
+#
+# @on-source-error: #optional the action to take on an error on the source,
+#                   default 'report'.  'stop' and 'enospc' can only be used
+#                   if the block device supports io-status (see BlockInfo).
+#
+# @on-target-error: #optional the action to take on an error on the target,
+#                   default 'report' (no limitations, since this applies to
+#                   a different block device than @device).
+# @unmap: #optional Whether to try to unmap target sectors where source has
+#         only zero. If true, and target unallocated sectors will read as zero,
+#         target image sectors will be unmapped; otherwise, zeroes will be
+#         written. Both will result in identical contents.
+#         Default is true. (Since 2.4)
+#
+# Returns: nothing on success
+#          If @device is not a valid block device, DeviceNotFound
+#
+# Since 1.3
+##
+{ 'command': 'drive-mirror',
+  'data': { 'device': 'str', 'target': 'str', '*format': 'str',
+            '*node-name': 'str', '*replaces': 'str',
+            'sync': 'MirrorSyncMode', '*mode': 'NewImageMode',
+            '*speed': 'int', '*granularity': 'uint32',
+            '*buf-size': 'int', '*on-source-error': 'BlockdevOnError',
+            '*on-target-error': 'BlockdevOnError',
+            '*unmap': 'bool' } }
+```
+
+- hmp.c
+
+```c
+void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
+{
+    const char *device = qdict_get_str(qdict, "device");
+    const char *filename = qdict_get_str(qdict, "target");
+    const char *format = qdict_get_try_str(qdict, "format");
+    bool reuse = qdict_get_try_bool(qdict, "reuse", false);
+    bool full = qdict_get_try_bool(qdict, "full", false);
+    enum NewImageMode mode;
+    Error *err = NULL;
+
+    if (!filename) {
+        error_setg(&err, QERR_MISSING_PARAMETER, "target");
+        hmp_handle_error(mon, &err);
+        return;
+    }
+
+    if (reuse) {
+        mode = NEW_IMAGE_MODE_EXISTING;
+    } else {
+        mode = NEW_IMAGE_MODE_ABSOLUTE_PATHS;
+    }
+
+    qmp_drive_mirror(device, filename, !!format, format,
+                     false, NULL, false, NULL,
+                     full ? MIRROR_SYNC_MODE_FULL : MIRROR_SYNC_MODE_TOP,
+                     true, mode, false, 0, false, 0, false, 0,
+                     false, 0, false, 0, false, true, &err);
+    hmp_handle_error(mon, &err);
+}
+```
+
+- blockdev.c
+
+```
+void qmp_drive_mirror(const char *device, const char *target,
+                      bool has_format, const char *format,
+                      bool has_node_name, const char *node_name,
+                      bool has_replaces, const char *replaces,
+                      enum MirrorSyncMode sync,
+                      bool has_mode, enum NewImageMode mode,
+                      bool has_speed, int64_t speed,
+                      bool has_granularity, uint32_t granularity,
+                      bool has_buf_size, int64_t buf_size,
+                      bool has_on_source_error, BlockdevOnError on_source_error,
+                      bool has_on_target_error, BlockdevOnError on_target_error,
+                      bool has_unmap, bool unmap,
+                      Error **errp)
+{
+    BlockDriverState *bs;
+    BlockBackend *blk;
+    BlockDriverState *source, *target_bs;
+    AioContext *aio_context;
+    Error *local_err = NULL;
+    QDict *options = NULL;
+    int flags;
+    int64_t size;
+    int ret;
+
+    blk = blk_by_name(device);
+    if (!blk) {
+        error_set(errp, ERROR_CLASS_DEVICE_NOT_FOUND,
+                  "Device '%s' not found", device);
+        return;
+    }
+
+    aio_context = blk_get_aio_context(blk);
+    aio_context_acquire(aio_context);
+
+    if (!blk_is_available(blk)) {
+        error_setg(errp, QERR_DEVICE_HAS_NO_MEDIUM, device);
+        goto out;
+    }
+    bs = blk_bs(blk);
+    if (!has_mode) {
+        mode = NEW_IMAGE_MODE_ABSOLUTE_PATHS;
+    }
+
+    if (!has_format) {
+        format = mode == NEW_IMAGE_MODE_EXISTING ? NULL : bs->drv->format_name;
+    }
+
+    flags = bs->open_flags | BDRV_O_RDWR;
+    source = backing_bs(bs);
+    if (!source && sync == MIRROR_SYNC_MODE_TOP) {
+        sync = MIRROR_SYNC_MODE_FULL;
+    }
+    if (sync == MIRROR_SYNC_MODE_NONE) {
+        source = bs;
+    }
+
+    size = bdrv_getlength(bs);
+    if (size < 0) {
+        error_setg_errno(errp, -size, "bdrv_getlength failed");
+        goto out;
+    }
+
+    if (has_replaces) {
+        BlockDriverState *to_replace_bs;
+        AioContext *replace_aio_context;
+        int64_t replace_size;
+
+        if (!has_node_name) {
+            error_setg(errp, "a node-name must be provided when replacing a"
+                             " named node of the graph");
+            goto out;
+        }
+
+        to_replace_bs = check_to_replace_node(bs, replaces, &local_err);
+
+        if (!to_replace_bs) {
+            error_propagate(errp, local_err);
+            goto out;
+        }
+
+        replace_aio_context = bdrv_get_aio_context(to_replace_bs);
+        aio_context_acquire(replace_aio_context);
+        replace_size = bdrv_getlength(to_replace_bs);
+        aio_context_release(replace_aio_context);
+
+        if (size != replace_size) {
+            error_setg(errp, "cannot replace image with a mirror image of "
+                             "different size");
+            goto out;
+        }
+    }
+
+    if ((sync == MIRROR_SYNC_MODE_FULL || !source)
+        && mode != NEW_IMAGE_MODE_EXISTING)
+    {
+        /* create new image w/o backing file */
+        assert(format);
+        bdrv_img_create(target, format,
+                        NULL, NULL, NULL, size, flags, &local_err, false);
+    } else {
+        switch (mode) {
+        case NEW_IMAGE_MODE_EXISTING:
+            break;
+        case NEW_IMAGE_MODE_ABSOLUTE_PATHS:
+            /* create new image with backing file */
+            bdrv_img_create(target, format,
+                            source->filename,
+                            source->drv->format_name,
+                            NULL, size, flags, &local_err, false);
+            break;
+        default:
+            abort();
+        }
+    }
+
+    if (local_err) {
+        error_propagate(errp, local_err);
+        goto out;
+    }
+
+    options = qdict_new();
+    if (has_node_name) {
+        qdict_put(options, "node-name", qstring_from_str(node_name));
+    }
+    if (format) {
+        qdict_put(options, "driver", qstring_from_str(format));
+    }
+
+    /* Mirroring takes care of copy-on-write using the source's backing
+     * file.
+     */
+    target_bs = NULL;
+    ret = bdrv_open(&target_bs, target, NULL, options,
+                    flags | BDRV_O_NO_BACKING, &local_err);
+    if (ret < 0) {
+        error_propagate(errp, local_err);
+        goto out;
+    }
+
+    bdrv_set_aio_context(target_bs, aio_context);
+
+    blockdev_mirror_common(bs, target_bs,
+                           has_replaces, replaces, sync,
+                           has_speed, speed,
+                           has_granularity, granularity,
+                           has_buf_size, buf_size,
+                           has_on_source_error, on_source_error,
+                           has_on_target_error, on_target_error,
+                           has_unmap, unmap,
+                           &local_err);
+    if (local_err) {
+        error_propagate(errp, local_err);
+        bdrv_unref(target_bs);
+    }
+out:
+    aio_context_release(aio_context);
 }
 ```
