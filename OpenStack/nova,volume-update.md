@@ -1352,7 +1352,7 @@ void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
 
 - blockdev.c
 
-```
+```c
 void qmp_drive_mirror(const char *device, const char *target,
                       bool has_format, const char *format,
                       bool has_node_name, const char *node_name,
