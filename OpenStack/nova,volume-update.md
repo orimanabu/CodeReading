@@ -506,7 +506,7 @@ def do_volume_update(cs, args):
         return self.build_response(request, resp)
 ```
 
-- HTTPAdapter.get_connection() @adapters.py
+- HTTPAdapter.get_connection() @adapters.py [requests]
 
 ```python3
     def get_connection(self, url, proxies=None):
@@ -532,7 +532,7 @@ def do_volume_update(cs, args):
         return conn
 ```
 
-- HTTPConnectionPool.\_get\_conn() @packages/urllib3/connectionpool.py
+- HTTPConnectionPool.\_get\_conn() @packages/urllib3/connectionpool.py [requests]
 
 ```python3
     def _get_conn(self, timeout=None):
@@ -575,9 +575,9 @@ def do_volume_update(cs, args):
 ```
 
 
-# 次にコントローラ側
+## 次にコントローラ側
 
-- Volumes.get\_resources() @api/openstack/compute/volumes.py
+- Volumes.get\_resources() @api/openstack/compute/volumes.py [nova]
 
 ```python
     def get_resources(self):
@@ -606,7 +606,7 @@ def do_volume_update(cs, args):
         return resources
 ```
 
-- Volumes.get\_resources() @api/openstack/compute/legacy\_v2/contrib/volumes.py
+- Volumes.get\_resources() @api/openstack/compute/legacy\_v2/contrib/volumes.py [nova]
 
 ```python
     def get_resources(self):
@@ -642,7 +642,7 @@ def do_volume_update(cs, args):
 
 os-volume-attachment-update
 
-VolumeAttachmentController.update() @api/openstack/compute/volumes.py
+- VolumeAttachmentController.update() @api/openstack/compute/volumes.py [nova]
 
 ```python
     def update(self, req, server_id, id, body):
@@ -691,7 +691,7 @@ VolumeAttachmentController.update() @api/openstack/compute/volumes.py
             raise exc.HTTPNotFound(explanation=msg)
 ```
 
-VolumeAttachmentController.update() @api/openstack/compute/legacy_v2/contrib/volumes.py
+- VolumeAttachmentController.update() @api/openstack/compute/legacy_v2/contrib/volumes.py [nova]
 
 ```python
     def update(self, req, server_id, id, body):
@@ -748,7 +748,7 @@ VolumeAttachmentController.update() @api/openstack/compute/legacy_v2/contrib/vol
             return webob.Response(status_int=202)
 ```
 
-Volume\_attachment\_update @api/openstack/compute/legacy\_v2/contrib/volume\_attachment\_update.py
+- Volume\_attachment\_update @api/openstack/compute/legacy\_v2/contrib/volume\_attachment\_update.py [nova]
 
 ```python
 class Volume_attachment_update(extensions.ExtensionDescriptor):
@@ -762,7 +762,7 @@ class Volume_attachment_update(extensions.ExtensionDescriptor):
 ```
 
 
-API.swap_volume() @compute/api.py
+- API.swap_volume() @compute/api.py [nova]
 
 ```python
     def swap_volume(self, context, instance, old_volume, new_volume):
@@ -795,7 +795,7 @@ API.swap_volume() @compute/api.py
                 self.volume_api.unreserve_volume(context, new_volume['id'])
 ```
 
-- ComputeAPI.swap_volume() @compute/rpcapi.py
+- ComputeAPI.swap_volume() @compute/rpcapi.py [nova]
 
 ```python
     def swap_volume(self, ctxt, instance, old_volume_id, new_volume_id):
@@ -807,7 +807,7 @@ API.swap_volume() @compute/api.py
                    new_volume_id=new_volume_id)
 ```
 
-- ComputeManager.swap_volume() @compute/manager.py
+- ComputeManager.swap_volume() @compute/manager.py [nova]
 
 ```python
     def swap_volume(self, context, old_volume_id, new_volume_id, instance):
@@ -857,7 +857,7 @@ API.swap_volume() @compute/api.py
         bdm.save()
 ```
 
-- ComputeManager.\_swap\_volume() @compute/manager.py
+- ComputeManager.\_swap\_volume() @compute/manager.py [nova]
 
 ```python
     def _swap_volume(self, context, instance, bdm, connector,
@@ -921,7 +921,7 @@ API.swap_volume() @compute/api.py
         return (comp_ret, new_cinfo)
 ```
 
-- LibvirtDriver.swap_volume() @virt/libvirt/driver.py
+- LibvirtDriver.swap_volume() @virt/libvirt/driver.py [nova]
 
 ```python
     def swap_volume(self, old_connection_info,
@@ -956,7 +956,7 @@ API.swap_volume() @compute/api.py
         self._disconnect_volume(old_connection_info, disk_dev)
 ```
 
-- LibvirtDriver.\_swap\_volume() @virt/libvirt/driver.py
+- LibvirtDriver.\_swap\_volume() @virt/libvirt/driver.py [nova]
 
 ```python
     def _swap_volume(self, guest, disk_path, new_path, resize_to):
@@ -1000,7 +1000,7 @@ API.swap_volume() @compute/api.py
             self._host.write_instance_config(xml)
 ```
 
-- BlockDevice.rebase() @virt/libvirt/guest.py
+- BlockDevice.rebase() @virt/libvirt/guest.py [nova]
 
 ```python
     def rebase(self, base, shallow=False, reuse_ext=False,
@@ -1020,7 +1020,9 @@ API.swap_volume() @compute/api.py
             self._disk, base, self.REBASE_DEFAULT_BANDWIDTH, flags=flags)
 ```
 
-- virDomain.blockRebase() @/usr/lib64/python2.7/site-packages/libvirt.py
+## ここからlibvirt-python
+
+- virDomain.blockRebase() @libvirt.py [libvirt]
 
 ```python
     def blockRebase(self, disk, base, bandwidth=0, flags=0):
@@ -1128,7 +1130,9 @@ API.swap_volume() @compute/api.py
         return ret
 ```
 
-- src/libvirt-domain.c
+## ここからlibvirt
+
+- src/libvirt-domain.c [libvirt]
 
 ```c
 int
@@ -1177,7 +1181,7 @@ virDomainBlockRebase(virDomainPtr dom, const char *disk,
 }
 ```
 
-- src/qemu/qemu_driver.c
+- src/qemu/qemu_driver.c [libvirt]
 
 ```c
 static virHypervisorDriver qemuHypervisorDriver = {
@@ -1482,7 +1486,7 @@ qemuMonitorDriveMirror(qemuMonitorPtr mon,
 }
 ```
 
-- src/qemu/qemu\_monitor\_json.c
+- src/qemu/qemu\_monitor\_json.c [libvirt]
 
 ```c
 /* speed is in bytes/sec */
@@ -1527,7 +1531,7 @@ qemuMonitorJSONDriveMirror(qemuMonitorPtr mon,
 }
 ```
 
-- src/qemu/qemu\_monitor\_json.c
+- src/qemu/qemu\_monitor\_json.c [libvirt]
 
 ```c
 #define qemuMonitorJSONMakeCommand(cmdname, ...) \
@@ -1697,7 +1701,7 @@ qemuインスタンスを外から制御するためのjsonベースのプロト
 
 ## 'drive-mirror' QMP
 
-- qmp-commands.hx
+- qmp-commands.hx [qemu]
 
 ```
     {
@@ -1765,7 +1769,7 @@ Example:
 
 ```
 
-- qapi/block-core.json
+- qapi/block-core.json [qemu]
 
 ```
 ##
@@ -1834,7 +1838,9 @@ Example:
             '*unmap': 'bool' } }
 ```
 
-- hmp.c
+- hmp.c [qemu]
+
+このファイルには、Human Monitor Interfaceが実装されている。
 
 ```c
 void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
@@ -1868,7 +1874,7 @@ void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
 }
 ```
 
-- blockdev.c
+- blockdev.c [qemu]
 
 ```c
 void qmp_drive_mirror(const char *device, const char *target,
@@ -2030,7 +2036,7 @@ out:
 }
 ```
 
-- block.c
+- block.c [qemu]
 
 ```c
 void bdrv_img_create(const char *filename, const char *fmt,
@@ -2201,7 +2207,7 @@ out:
 }
 ```
 
-- blockdev.c
+- blockdev.c [qemu]
 
 ```c
 /* Parameter check and block job starting for drive mirroring.
@@ -2278,7 +2284,7 @@ static void blockdev_mirror_common(BlockDriverState *bs,
 }
 ```
 
-- block/mirror.c
+- block/mirror.c [qemu]
 
 ```c
 void mirror_start(BlockDriverState *bs, BlockDriverState *target,
@@ -2393,7 +2399,7 @@ static void mirror_start_job(BlockDriverState *bs, BlockDriverState *target,
 }
 ```
 
-- blockjob.c
+- blockjob.c [qemu]
 
 ```c
 void *block_job_create(const BlockJobDriver *driver, BlockDriverState *bs,
@@ -2440,7 +2446,7 @@ void *block_job_create(const BlockJobDriver *driver, BlockDriverState *bs,
 }
 ```
 
-- block/dirty-bitmap.c
+- block/dirty-bitmap.c [qemu]
 
 ```c
 BdrvDirtyBitmap *bdrv_create_dirty_bitmap(BlockDriverState *bs,
@@ -2476,7 +2482,7 @@ BdrvDirtyBitmap *bdrv_create_dirty_bitmap(BlockDriverState *bs,
 }
 ```
 
-- block.c
+- block.c [qemu]
 
 ```c
 void bdrv_op_block_all(BlockDriverState *bs, Error *reason)
@@ -2498,7 +2504,7 @@ void blk_iostatus_enable(BlockBackend *blk)
 }
 ```
 
-- util/qemu-coroutine.c
+- util/qemu-coroutine.c [qemu]
 
 ```c
 Coroutine *qemu_coroutine_create(CoroutineEntry *entry)
@@ -2540,7 +2546,7 @@ Coroutine *qemu_coroutine_create(CoroutineEntry *entry)
 }
 ```
 
-- block/mirror.c
+- block/mirror.c [qemu]
 
 ```c
 static void coroutine_fn mirror_run(void *opaque)
