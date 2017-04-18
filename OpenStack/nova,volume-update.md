@@ -62,7 +62,7 @@ def do_volume_update(cs, args):
                             body, "volumeAttachment")
 ```
 
-(詳細は[こちら]())
+(詳細は[こちら](https://github.com/orimanabu/CodeReading/blob/master/OpenStack/nova%2Cvolume-update/novaclient.md))
 
 "/servers/SERVER\_UUID/os-volume\_attachments/ATTACHMENT\_ID" というURLに向けてREST APIが飛ぶ。
 
@@ -70,7 +70,7 @@ def do_volume_update(cs, args):
 
 最終的にvolume-updateのREST APIはAPI.swap_volume()が起点になる。
 
-(ここに至る詳細は[こちら]()に書く予定。まだ未完成)
+(ここに至る詳細は[こちら](https://github.com/orimanabu/CodeReading/blob/master/OpenStack/nova%2Cvolume-update/nova_resource.md)に書く予定。まだ未完成)
 
 - API.swap_volume() @compute/api.py [nova]
 
@@ -868,6 +868,8 @@ qemuMonitorJSONDriveMirror(qemuMonitorPtr mon,
 ```
 
 最終的にqemuMonitorJSONCommand()を通してQMPのdrive-mirrorコマンドを呼び出す。
+
+(このさき実際にコマンドを発行するまでは[こちら](https://github.com/orimanabu/CodeReading/blob/master/OpenStack/nova%2Cvolume-update/qemu_qmp.md))
 
 # ここからqemuの世界
 
