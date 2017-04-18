@@ -590,7 +590,7 @@ static void mirror_start_job(BlockDriverState *bs, BlockDriverState *target,
         blk_set_on_error(s->target->blk, on_target_error, on_target_error);
         blk_iostatus_enable(s->target->blk);
     }
-    s->common.co = qemu_coroutine_create(mirror_run);
+    s->common.co = qemu_coroutine_create(mirror_run);                              /* XXX */
     trace_mirror_start(bs, s, s->common.co, opaque);
     qemu_coroutine_enter(s->common.co, s);
 }
