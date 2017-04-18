@@ -2,7 +2,7 @@
 
 drive\_mirror QMPから呼ばれるコルーチンmirror\_run()の中身。
 
-最終的には書き出すときにThin Provisioning対応しているかを知りたい。
+最終的には書き出すときにThin Provisioning対応しているかを知りたい。たぶんTRIMとかDISCARDとかWRITE_SAMEとかがキーワードになるはず。
 
 ## 概要
 
@@ -103,7 +103,7 @@ static uint64_t coroutine_fn mirror_iteration(MirrorBlockJob *s)
 
 ```
 
-bdrv\_get\_block\_status\_above()の戻り値を見て、次に何を呼ぶかを変えているっぽい。
+bdrv\_get\_block\_status\_above()の戻り値を見て、mirror_methodを変えているっぽい。
 
 - bdrv\_get\_block\_status\_above() @block/io.c
 
