@@ -95,7 +95,7 @@ def do_volume_update(cs, args):
         self.volume_api.begin_detaching(context, old_volume['id'])
         self.volume_api.reserve_volume(context, new_volume['id'])
         try:
-            self.compute_rpcapi.swap_volume(  /* XXX */
+            self.compute_rpcapi.swap_volume(                                    # XXX
                     context, instance=instance,
                     old_volume_id=old_volume['id'],
                     new_volume_id=new_volume['id'])
@@ -143,7 +143,7 @@ RPC受け側
         LOG.info(_LI('Swapping volume %(old_volume)s for %(new_volume)s'),
                   {'old_volume': old_volume_id, 'new_volume': new_volume_id},
                   context=context, instance=instance)
-        comp_ret, new_cinfo = self._swap_volume(context, instance, /* XXX */
+        comp_ret, new_cinfo = self._swap_volume(context, instance,               # XXX
                                                          bdm,
                                                          connector,
                                                          old_volume_id,
@@ -193,7 +193,7 @@ RPC受け側
                       "old: %(old_cinfo)s",
                       {'new_cinfo': new_cinfo, 'old_cinfo': old_cinfo},
                       contex=context, instance=instance)
-            self.driver.swap_volume(old_cinfo, new_cinfo, instance, mountpoint, /* XXX */
+            self.driver.swap_volume(old_cinfo, new_cinfo, instance, mountpoint,    # XXX
                                     resize_to)
         except Exception:
             failed = True
@@ -270,7 +270,7 @@ RPC受け側
         driver_bdm['connection_info'] = new_connection_info
         driver_bdm.save()
 
-        self._swap_volume(guest, disk_dev, conf.source_path, resize_to) /* XXX */
+        self._swap_volume(guest, disk_dev, conf.source_path, resize_to)          # XXX
         self._disconnect_volume(old_connection_info, disk_dev)
 ```
 
@@ -303,7 +303,7 @@ libvirtドライバの中でさらに\_swap\_volume()を呼ぶ。
 
             # Start copy with VIR_DOMAIN_REBASE_REUSE_EXT flag to
             # allow writing to existing external volume file
-            dev.rebase(new_path, copy=True, reuse_ext=True) /* XXX */
+            dev.rebase(new_path, copy=True, reuse_ext=True)                    # XXX
 
             while dev.wait_for_job():
                 time.sleep(0.5)
@@ -451,7 +451,7 @@ libvirt-pythonのコードは/usr/lib64/python2.7/site-packagesがトップデ�
         are preserved, and remaining flags control whether the XML encodes a
         destination format of raw instead of leaving the destination identical
         to the source format or probed from the reused file. """
-        ret = libvirtmod.virDomainBlockRebase(self._o, disk, base, bandwidth, flags) /* XXX */
+        ret = libvirtmod.virDomainBlockRebase(self._o, disk, base, bandwidth, flags)  # XXX
         if ret == -1: raise libvirtError ('virDomainBlockRebase() failed', dom=self)
         return ret
 ```

@@ -147,9 +147,9 @@ Example:
             '*unmap': 'bool' } }
 ```
 
-- hmp.c [qemu]
+QMPを呼び出す方法のひとつに、Human Monitor Interfaceがある。drive\_mirrorのHMIはこちら。
 
-このファイルには、Human Monitor Interfaceが実装されている。
+- hmp.c [qemu]
 
 ```c
 void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
@@ -182,6 +182,59 @@ void hmp_drive_mirror(Monitor *mon, const QDict *qdict)
     hmp_handle_error(mon, &err);
 }
 ```
+
+"drive\_mirror" QMPの本体はqmp\_drive\_mirror()が起点になる。
+
+qmp\_drive\_mirror()の定義とか、どこから呼び出されるかとかは、make時に作るファイルqmp-commands.h、qmp-marshal.c等に書かれる。scripts/qapi-commands.pyを使って、qapi/block-core.jsonから生成する。
+
+- Makefile
+
+```
+qmp-commands.h qmp-marshal.c :\
+$(qapi-modules) $(SRC_PATH)/scripts/qapi-commands.py $(qapi-py)
+        $(call quiet-command,$(PYTHON) $(SRC_PATH)/scripts/qapi-commands.py \
+                $(gen-out-type) -o "." -m $<, \
+                "  GEN   $@")
+```
+
+- qmp-commands.h
+
+```c
+void qmp_drive_mirror(const char *device, const char *target, bool has_format, const char *format, bool has_node_name, const char *node_name, bool has_replaces, const char *replaces, MirrorSyncMode sync, bool has_mode, NewImageMode mode, bool has_speed, int64_t speed, bool has_granularity, uint32_t granularity, bool has_buf_size, int64_t buf_size, bool has_on_source_error, BlockdevOnError on_source_error, bool has_on_target_error, BlockdevOnError on_target_error, bool has_unmap, bool unmap, Error **errp);
+void qmp_marshal_drive_mirror(QDict *args, QObject **ret, Error **errp);
+```
+
+- qmp-marshal.c
+
+```c
+void qmp_marshal_drive_mirror(QDict *args, QObject **ret, Error **errp)
+{
+    Error *err = NULL;
+    QmpInputVisitor *qiv = qmp_input_visitor_new_strict(QOBJECT(args));
+    QapiDeallocVisitor *qdv;
+    Visitor *v;
+    q_obj_drive_mirror_arg arg = {0};
+
+    v = qmp_input_get_visitor(qiv);
+    visit_type_q_obj_drive_mirror_arg_members(v, &arg, &err);
+    if (err) {
+        goto out;
+    }
+
+    qmp_drive_mirror(arg.device, arg.target, arg.has_format, arg.format, arg.has_node_name, arg.node_name, arg.has_replaces, arg.replaces, arg.sync, arg.has_mode, arg.mode, arg.has_speed, arg.speed, arg.has_granularity, arg.granularity, arg.has_buf_size, arg.buf_size, arg.has_on_source_error, arg.on_source_error, arg.has_on_target_error, arg.on_target_error, arg.has_unmap, arg.unmap, &err);
+
+out:
+    error_propagate(errp, err);
+    qmp_input_visitor_cleanup(qiv);
+    qdv = qapi_dealloc_visitor_new();
+    v = qapi_dealloc_get_visitor(qdv);
+    visit_type_q_obj_drive_mirror_arg_members(v, &arg, NULL);
+    qapi_dealloc_visitor_cleanup(qdv);
+}
+```
+
+というわけで、"drive\_mirror" QMPの本体であるqmp\_drive\_mirror()がこれ。
+
 
 - blockdev.c [qemu]
 
