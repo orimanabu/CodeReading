@@ -734,7 +734,7 @@ static void coroutine_fn mirror_run(void *opaque)
                 mirror_wait_for_io(s);
                 continue;
             } else if (cnt != 0) {
-                delay_ns = mirror_iteration(s);
+                delay_ns = mirror_iteration(s);                                         /* XXX */
             }
         }
 
@@ -832,3 +832,5 @@ immediate_exit:
     block_job_defer_to_main_loop(&s->common, mirror_exit, data);
 }
 ```
+
+mirror\_run()の中身は[こちら](https://github.com/orimanabu/CodeReading/blob/master/Qemu/mirror_run.md)に移動。
