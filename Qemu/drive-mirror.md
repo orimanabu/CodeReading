@@ -380,7 +380,7 @@ void qmp_drive_mirror(const char *device, const char *target,
 
     bdrv_set_aio_context(target_bs, aio_context);
 
-    blockdev_mirror_common(bs, target_bs,
+    blockdev_mirror_common(bs, target_bs,                                   /* XXX */
                            has_replaces, replaces, sync,
                            has_speed, speed,
                            has_granularity, granularity,
@@ -398,176 +398,7 @@ out:
 }
 ```
 
-- block.c [qemu]
-
-```c
-void bdrv_img_create(const char *filename, const char *fmt,
-                     const char *base_filename, const char *base_fmt,
-                     char *options, uint64_t img_size, int flags,
-                     Error **errp, bool quiet)
-{
-    QemuOptsList *create_opts = NULL;
-    QemuOpts *opts = NULL;
-    const char *backing_fmt, *backing_file;
-    int64_t size;
-    BlockDriver *drv, *proto_drv;
-    Error *local_err = NULL;
-    int ret = 0;
-
-    /* Find driver and parse its options */
-    drv = bdrv_find_format(fmt);
-    if (!drv) {
-        error_setg(errp, "Unknown file format '%s'", fmt);
-        return;
-    }
-
-    proto_drv = bdrv_find_protocol(filename, true, errp);
-    if (!proto_drv) {
-        return;
-    }
-
-    if (!drv->create_opts) {
-        error_setg(errp, "Format driver '%s' does not support image creation",
-                   drv->format_name);
-        return;
-    }
-
-    if (!proto_drv->create_opts) {
-        error_setg(errp, "Protocol driver '%s' does not support image creation",
-                   proto_drv->format_name);
-        return;
-    }
-
-    create_opts = qemu_opts_append(create_opts, drv->create_opts);
-    create_opts = qemu_opts_append(create_opts, proto_drv->create_opts);
-
-    /* Create parameter list with default values */
-    opts = qemu_opts_create(create_opts, NULL, 0, &error_abort);
-    qemu_opt_set_number(opts, BLOCK_OPT_SIZE, img_size, &error_abort);
-
-    /* Parse -o options */
-    if (options) {
-        qemu_opts_do_parse(opts, options, NULL, &local_err);
-        if (local_err) {
-            error_report_err(local_err);
-            local_err = NULL;
-            error_setg(errp, "Invalid options for file format '%s'", fmt);
-            goto out;
-        }
-    }
-
-    if (base_filename) {
-        qemu_opt_set(opts, BLOCK_OPT_BACKING_FILE, base_filename, &local_err);
-        if (local_err) {
-            error_setg(errp, "Backing file not supported for file format '%s'",
-                       fmt);
-            goto out;
-        }
-    }
-
-    if (base_fmt) {
-        qemu_opt_set(opts, BLOCK_OPT_BACKING_FMT, base_fmt, &local_err);
-        if (local_err) {
-            error_setg(errp, "Backing file format not supported for file "
-                             "format '%s'", fmt);
-            goto out;
-        }
-    }
-
-    backing_file = qemu_opt_get(opts, BLOCK_OPT_BACKING_FILE);
-    if (backing_file) {
-        if (!strcmp(filename, backing_file)) {
-            error_setg(errp, "Error: Trying to create an image with the "
-                             "same filename as the backing file");
-            goto out;
-        }
-    }
-
-    backing_fmt = qemu_opt_get(opts, BLOCK_OPT_BACKING_FMT);
-
-    // The size for the image must always be specified, with one exception:
-    // If we are using a backing file, we can obtain the size from there
-    size = qemu_opt_get_size(opts, BLOCK_OPT_SIZE, 0);
-    if (size == -1) {
-        if (backing_file) {
-            BlockDriverState *bs;
-            char *full_backing = g_new0(char, PATH_MAX);
-            int64_t size;
-            int back_flags;
-            QDict *backing_options = NULL;
-
-            bdrv_get_full_backing_filename_from_filename(filename, backing_file,
-                                                         full_backing, PATH_MAX,
-                                                         &local_err);
-            if (local_err) {
-                g_free(full_backing);
-                goto out;
-            }
-
-            /* backing files always opened read-only */
-            back_flags = flags;
-            back_flags &= ~(BDRV_O_RDWR | BDRV_O_SNAPSHOT | BDRV_O_NO_BACKING);
-
-            if (backing_fmt) {
-                backing_options = qdict_new();
-                qdict_put(backing_options, "driver",
-                          qstring_from_str(backing_fmt));
-            }
-
-            bs = NULL;
-            ret = bdrv_open(&bs, full_backing, NULL, backing_options,
-                            back_flags, &local_err);
-            g_free(full_backing);
-            if (ret < 0) {
-                goto out;
-            }
-            size = bdrv_getlength(bs);
-            if (size < 0) {
-                error_setg_errno(errp, -size, "Could not get size of '%s'",
-                                 backing_file);
-                bdrv_unref(bs);
-                goto out;
-            }
-
-            qemu_opt_set_number(opts, BLOCK_OPT_SIZE, size, &error_abort);
-
-            bdrv_unref(bs);
-        } else {
-            error_setg(errp, "Image creation needs a size parameter");
-            goto out;
-        }
-    }
-
-    if (!quiet) {
-        printf("Formatting '%s', fmt=%s ", filename, fmt);
-        qemu_opts_print(opts, " ");
-        puts("");
-    }
-
-    ret = bdrv_create(drv, filename, opts, &local_err);
-
-    if (ret == -EFBIG) {
-        /* This is generally a better message than whatever the driver would
-         * deliver (especially because of the cluster_size_hint), since that
-         * is most probably not much different from "image too large". */
-        const char *cluster_size_hint = "";
-        if (qemu_opt_get_size(opts, BLOCK_OPT_CLUSTER_SIZE, 0)) {
-            cluster_size_hint = " (try using a larger cluster size)";
-        }
-        error_setg(errp, "The image size is too large for file format '%s'"
-                   "%s", fmt, cluster_size_hint);
-        error_free(local_err);
-        local_err = NULL;
-    }
-
-out:
-    qemu_opts_del(opts);
-    qemu_opts_free(create_opts);
-    if (local_err) {
-        error_propagate(errp, local_err);
-    }
-}
-```
+blockdev\_mirror\_common()を呼ぶ。
 
 - blockdev.c [qemu]
 
@@ -638,13 +469,15 @@ static void blockdev_mirror_common(BlockDriverState *bs,
     /* pass the node name to replace to mirror start since it's loose coupling
      * and will allow to check whether the node still exist at mirror completion
      */
-    mirror_start(bs, target,
+    mirror_start(bs, target,                                                       /* XXX */
                  has_replaces ? replaces : NULL,
                  speed, granularity, buf_size, sync,
                  on_source_error, on_target_error, unmap,
                  block_job_cb, bs, errp);
 }
 ```
+
+mirror_start()を呼ぶ。
 
 - block/mirror.c [qemu]
 
@@ -667,12 +500,14 @@ void mirror_start(BlockDriverState *bs, BlockDriverState *target,
     }
     is_none_mode = mode == MIRROR_SYNC_MODE_NONE;
     base = mode == MIRROR_SYNC_MODE_TOP ? backing_bs(bs) : NULL;
-    mirror_start_job(bs, target, replaces,
+    mirror_start_job(bs, target, replaces,                                      /* XXX */
                      speed, granularity, buf_size,
                      on_source_error, on_target_error, unmap, cb, opaque, errp,
                      &mirror_job_driver, is_none_mode, base);
 }
 ```
+
+さらにmirror\_start\_job()を呼ぶ。
 
 ```c
 static void mirror_start_job(BlockDriverState *bs, BlockDriverState *target,
@@ -761,152 +596,7 @@ static void mirror_start_job(BlockDriverState *bs, BlockDriverState *target,
 }
 ```
 
-- blockjob.c [qemu]
-
-```c
-void *block_job_create(const BlockJobDriver *driver, BlockDriverState *bs,
-                       int64_t speed, BlockCompletionFunc *cb,
-                       void *opaque, Error **errp)
-{
-    BlockJob *job;
-
-    if (bs->job) {
-        error_setg(errp, QERR_DEVICE_IN_USE, bdrv_get_device_name(bs));
-        return NULL;
-    }
-    bdrv_ref(bs);
-    job = g_malloc0(driver->instance_size);
-    error_setg(&job->blocker, "block device is in use by block job: %s",
-               BlockJobType_lookup[driver->job_type]);
-    bdrv_op_block_all(bs, job->blocker);
-    bdrv_op_unblock(bs, BLOCK_OP_TYPE_DATAPLANE, job->blocker);
-
-    job->driver        = driver;
-    job->id            = g_strdup(bdrv_get_device_name(bs));
-    job->bs            = bs;
-    job->cb            = cb;
-    job->opaque        = opaque;
-    job->busy          = true;
-    job->refcnt        = 1;
-    bs->job = job;
-
-    bdrv_add_aio_context_notifier(bs, block_job_attached_aio_context,
-                                  block_job_detach_aio_context, job);
-
-    /* Only set speed when necessary to avoid NotSupported error */
-    if (speed != 0) {
-        Error *local_err = NULL;
-
-        block_job_set_speed(job, speed, &local_err);
-        if (local_err) {
-            block_job_unref(job);
-            error_propagate(errp, local_err);
-            return NULL;
-        }
-    }
-    return job;
-}
-```
-
-- block/dirty-bitmap.c [qemu]
-
-```c
-BdrvDirtyBitmap *bdrv_create_dirty_bitmap(BlockDriverState *bs,
-                                          uint32_t granularity,
-                                          const char *name,
-                                          Error **errp)
-{
-    int64_t bitmap_size;
-    BdrvDirtyBitmap *bitmap;
-    uint32_t sector_granularity;
-
-    assert((granularity & (granularity - 1)) == 0);
-
-    if (name && bdrv_find_dirty_bitmap(bs, name)) {
-        error_setg(errp, "Bitmap already exists: %s", name);
-        return NULL;
-    }
-    sector_granularity = granularity >> BDRV_SECTOR_BITS;
-    assert(sector_granularity);
-    bitmap_size = bdrv_nb_sectors(bs);
-    if (bitmap_size < 0) {
-        error_setg_errno(errp, -bitmap_size, "could not get length of device");
-        errno = -bitmap_size;
-        return NULL;
-    }
-    bitmap = g_new0(BdrvDirtyBitmap, 1);
-    bitmap->bitmap = hbitmap_alloc(bitmap_size, ctz32(sector_granularity));
-    bitmap->size = bitmap_size;
-    bitmap->name = g_strdup(name);
-    bitmap->disabled = false;
-    QLIST_INSERT_HEAD(&bs->dirty_bitmaps, bitmap, list);
-    return bitmap;
-}
-```
-
-- block.c [qemu]
-
-```c
-void bdrv_op_block_all(BlockDriverState *bs, Error *reason)
-{
-    int i;
-    for (i = 0; i < BLOCK_OP_TYPE_MAX; i++) {
-        bdrv_op_block(bs, i, reason);
-    }
-}
-```
-
-- block/block-backend.c
-
-```c
-void blk_iostatus_enable(BlockBackend *blk)
-{
-    blk->iostatus_enabled = true;
-    blk->iostatus = BLOCK_DEVICE_IO_STATUS_OK;
-}
-```
-
-- util/qemu-coroutine.c [qemu]
-
-```c
-Coroutine *qemu_coroutine_create(CoroutineEntry *entry)
-{
-    Coroutine *co = NULL;
-
-    if (CONFIG_COROUTINE_POOL) {
-        co = QSLIST_FIRST(&alloc_pool);
-        if (!co) {
-            if (release_pool_size > POOL_BATCH_SIZE) {
-                /* Slow path; a good place to register the destructor, too.  */
-                if (!coroutine_pool_cleanup_notifier.notify) {
-                    coroutine_pool_cleanup_notifier.notify = coroutine_pool_cleanup;
-                    qemu_thread_atexit_add(&coroutine_pool_cleanup_notifier);
-                }
-
-                /* This is not exact; there could be a little skew between
-                 * release_pool_size and the actual size of release_pool.  But
-                 * it is just a heuristic, it does not need to be perfect.
-                 */
-                alloc_pool_size = atomic_xchg(&release_pool_size, 0);
-                QSLIST_MOVE_ATOMIC(&alloc_pool, &release_pool);
-                co = QSLIST_FIRST(&alloc_pool);
-            }
-        }
-        if (co) {
-            QSLIST_REMOVE_HEAD(&alloc_pool, pool_next);
-            alloc_pool_size--;
-        }
-    }
-
-    if (!co) {
-        co = qemu_coroutine_new();
-    }
-
-    co->entry = entry;
-    QTAILQ_INIT(&co->co_queue_wakeup);
-    return co;
-}
-```
+mirror\_run()をコルーチンとして呼び出す。実際にミラーする処理はここが本体。
 
 - block/mirror.c [qemu]
 
