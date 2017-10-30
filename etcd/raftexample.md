@@ -231,6 +231,92 @@ func (rc *raftNode) replayWAL() *wal.WAL {
 }
 ```
 
+- WAL struct @wal/wal.go
+
+```go
+// WAL is a logical representation of the stable storage.
+// WAL is either in read mode or append mode but not both.
+// A newly created WAL is in append mode, and ready for appending records.
+// A just opened WAL is in read mode, and ready for reading records.
+// The WAL will be ready for appending after reading out all the previous records.
+type WAL struct {
+    dir string // the living directory of the underlay files
+
+    // dirFile is a fd for the wal directory for syncing on Rename
+    dirFile *os.File
+
+    metadata []byte           // metadata recorded at the head of each WAL
+    state    raftpb.HardState // hardstate recorded at the head of WAL
+
+    start     walpb.Snapshot // snapshot to start reading
+    decoder   *decoder       // decoder to decode records
+    readClose func() error   // closer for decode reader
+
+    mu      sync.Mutex
+    enti    uint64   // index of the last entry saved to the wal
+    encoder *encoder // encoder to encode records
+
+    locks []*fileutil.LockedFile // the locked files the WAL holds (the name is increasing)
+    fp    *filePipeline
+}
+```
+
+- raftpb.Snapshot struct @snap/snappb/snap.pb.go
+
+```go
+type Snapshot struct {
+    Crc              uint32 `protobuf:"varint,1,opt,name=crc" json:"crc"`
+    Data             []byte `protobuf:"bytes,2,opt,name=data" json:"data,omitempty"`
+    XXX_unrecognized []byte `json:"-"`
+}
+```
+
+- rc.loadSnapshot() @contrib/raftexample/raft.go
+
+```go
+func (rc *raftNode) loadSnapshot() *raftpb.Snapshot {
+    snapshot, err := rc.snapshotter.Load()
+    if err != nil && err != snap.ErrNoSnapshot {
+        log.Fatalf("raftexample: error loading snapshot (%v)", err)
+    }
+    return snapshot
+}
+```
+
+- rc.snapshotter.Load() @snap/snapshotter.go
+
+```go
+func (s *Snapshotter) Load() (*raftpb.Snapshot, error) {
+    names, err := s.snapNames()
+    if err != nil {
+        return nil, err
+    }
+    var snap *raftpb.Snapshot
+    for _, name := range names {
+        if snap, err = loadSnap(s.dir, name); err == nil {
+            break
+        }
+    }
+    if err != nil {
+        return nil, ErrNoSnapshot
+    }
+    return snap, nil
+}
+```
+
+- loadSnap() snap/snapshotter.go
+
+```go
+func loadSnap(dir, name string) (*raftpb.Snapshot, error) {
+    fpath := filepath.Join(dir, name)
+    snap, err := Read(fpath)
+    if err != nil {
+        renameBroken(fpath)
+    }
+    return snap, err
+}
+```
+
 ## newKVStore()
 
 - newKVStore() @contrib/raftexample/kvstore.go
