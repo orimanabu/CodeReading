@@ -171,6 +171,65 @@ func (rc *raftNode) startRaft() {
 }
 ```
 
+- Snapshotter struct
+
+```go
+type Snapshotter struct {
+    dir string
+}
+```
+
+- snap.New() @snap/snapshotter.go
+
+```go
+func New(dir string) *Snapshotter {
+    return &Snapshotter{
+        dir: dir,
+    }
+}
+```
+
+- wal.Exist() wal/util.go
+
+```go
+func Exist(dirpath string) bool {
+    names, err := fileutil.ReadDir(dirpath)
+    if err != nil {
+        return false
+    }
+    return len(names) != 0
+}
+```
+
+- rc.replayWAL() @contrib/raftexample/raft.go
+
+```go
+// replayWAL replays WAL entries into the raft instance.
+func (rc *raftNode) replayWAL() *wal.WAL {
+    log.Printf("replaying WAL of member %d", rc.id)
+    snapshot := rc.loadSnapshot()
+    w := rc.openWAL(snapshot)
+    _, st, ents, err := w.ReadAll()
+    if err != nil {
+        log.Fatalf("raftexample: failed to read WAL (%v)", err)
+    }
+    rc.raftStorage = raft.NewMemoryStorage()
+    if snapshot != nil {
+        rc.raftStorage.ApplySnapshot(*snapshot)
+    }
+    rc.raftStorage.SetHardState(st)
+
+    // append to storage so raft starts at the right place in log
+    rc.raftStorage.Append(ents)
+    // send nil once lastIndex is published so client knows commit channel is current
+    if len(ents) > 0 {
+        rc.lastIndex = ents[len(ents)-1].Index
+    } else {
+        rc.commitC <- nil
+    }
+    return w
+}
+```
 
 ## newKVStore()
 
