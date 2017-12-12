@@ -113,6 +113,8 @@ tcp\_request()が呼ばれるのは下記2通りのパス。
 
 ## main() → check\_dns\_listeners() → tcp\_request()
 
+- main() @src/dnsmasq.c
+
 ```c
 #ifdef HAVE_DBUS
       /* if we didn't create a DBus connection, retry now. */
@@ -210,12 +212,45 @@ tcp\_request()が呼ばれるのは下記2通りのパス。
 
 # forward\_query()
 
-tcp\_request()が呼ばれるのは下記2通りのパス。
+forward_query()が呼ばれるのは下記2通りのパス。
 
-- reply\_query() → forward\_query()
-- receive\_query() → forward\_query()
+- check\_dns\_listeners() → reply\_query() → forward\_query()
+- check\_dns\_listeners() → receive\_query() → forward\_query()
 
-## reply\_query() → forward\_query()
+## check\_dns\_listeners() → reply\_query() → forward\_query()
+
+- check\_dns\_listeners() @src/dnsmasq.c
+
+```c
+static void check_dns_listeners(time_t now)
+{
+  struct serverfd *serverfdp;
+  struct listener *listener;
+  int i;
+
+  for (serverfdp = daemon->sfds; serverfdp; serverfdp = serverfdp->next)
+    if (poll_check(serverfdp->fd, POLLIN))
+      reply_query(serverfdp->fd, serverfdp->source_addr.sa.sa_family, now);
+
+  if (daemon->port != 0 && !daemon->osport)
+    for (i = 0; i < RANDOM_SOCKS; i++)
+      if (daemon->randomsocks[i].refcount != 0 &&
+          poll_check(daemon->randomsocks[i].fd, POLLIN))
+        reply_query(daemon->randomsocks[i].fd, daemon->randomsocks[i].family, now);
+
+  for (listener = daemon->listeners; listener; listener = listener->next)
+    {
+      if (listener->fd != -1 && poll_check(listener->fd, POLLIN))
+        receive_query(listener, now);
+
+#ifdef HAVE_TFTP
+      if (listener->tftpfd != -1 && poll_check(listener->tftpfd, POLLIN))
+        tftp_request(listener, now);
+#endif
+
+      if (listener->tcpfd != -1 && poll_check(listener->tcpfd, POLLIN))
+        {
+```
 
 - reply\_query() @src/forward.c
 
@@ -278,7 +313,7 @@ tcp\_request()が呼ばれるのは下記2通りのパス。
                 }
 ```
 
-## receive\_query() → forward\_query()
+## check\_dns\_listeners() → receive\_query() → forward\_query()
 
 - receive\_query() @src/forward.c
 
