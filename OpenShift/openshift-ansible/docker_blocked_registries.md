@@ -140,6 +140,52 @@ inventory/byo/hosts.ose.example:93:#openshift_docker_blocked_registries=registry
 
 ```
 
+### oo_option
+
+- lookup_plugins/oo_option.py
+
+```python
+# Reason: disable too-few-public-methods because the `run` method is the only
+#     one required by the Ansible API
+# Status: permanently disabled
+# pylint: disable=too-few-public-methods
+class LookupModule(LookupBase):
+    ''' oo_option lookup plugin main class '''
+
+    # Reason: disable unused-argument because Ansible is calling us with many
+    #     parameters we are not interested in.
+    #     The lookup plugins of Ansible have this kwargs “catch-all” parameter
+    #     which is not used
+    # Status: permanently disabled unless Ansible API evolves
+    # pylint: disable=unused-argument
+    def __init__(self, basedir=None, **kwargs):
+        ''' Constructor '''
+        self.basedir = basedir
+
+    # Reason: disable unused-argument because Ansible is calling us with many
+    #     parameters we are not interested in.
+    #     The lookup plugins of Ansible have this kwargs “catch-all” parameter
+    #     which is not used
+    # Status: permanently disabled unless Ansible API evolves
+    # pylint: disable=unused-argument
+    def run(self, terms, variables, **kwargs):
+        ''' Main execution path '''
+
+        ret = []
+
+        for term in terms:
+            option_name = term.split()[0]
+            cli_key = 'cli_' + option_name
+            if 'vars' in variables and cli_key in variables['vars']:
+                ret.append(variables['vars'][cli_key])
+            elif option_name in os.environ:
+                ret.append(os.environ[option_name])
+            else:
+                ret.append('')
+
+        return ret
+```
+
 ## inventory/byo/hosts.ose.example
 
 ```
