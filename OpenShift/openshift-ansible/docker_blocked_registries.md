@@ -140,9 +140,25 @@ inventory/byo/hosts.ose.example:93:#openshift_docker_blocked_registries=registry
 
 ```
 
-### oo_option
+### oo_option lookup plugin
 
 - lookup_plugins/oo_option.py
+
+```
+oo_option lookup plugin for openshift-ansible
+
+Usage:
+
+    - debug:
+      msg: "{{ lookup('oo_option', '<key>') | default('<default_value>', True) }}"
+
+This returns, by order of priority:
+
+* if it exists, the `cli_<key>` ansible variable. This variable is set by `bin/cluster --option <key>=<value> …`
+* if it exists, the envirnoment variable named `<key>`
+* if none of the above conditions are met, empty string is returned
+```
+
 
 ```python
 # Reason: disable too-few-public-methods because the `run` method is the only
