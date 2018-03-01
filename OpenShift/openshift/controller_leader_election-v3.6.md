@@ -7,7 +7,7 @@
 </div>
 </details>
 
-- func origin.NewLeaderElection() (plug.Plug, func(), error) @pkg/cmd/server/origin/leaderelection.go
+func origin.NewLeaderElection() (plug.Plug, func(), error) @pkg/cmd/server/origin/leaderelection.go
 (https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
 
 ```go
@@ -63,9 +63,6 @@ func NewLeaderElection(options configapi.MasterConfig, leader componentconfig.Le
         return leased, legacyLeaderElectionStart(id, name, leased, lock, ttl), nil
     }
 ```
-
-</div>
-</details>
 
 <details><summary>
 plug related @pkg/cmd/util/plug/plug.go
@@ -213,7 +210,7 @@ func NewLeased(leaser Leaser) *Leased {
 </div>
 </details>
 
-- func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
+func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
 
 ```go
 // legacyLeaderElectionStart waits to verify lock has not been taken, then attempts to acquire and hold
@@ -250,3 +247,37 @@ func legacyLeaderElectionStart(id, name string, leased *plug.Leased, lock rl.Int
     }
 }
 ```
+
+<details><summary>
+func addDefaultingFuncs(scheme *runtime.Scheme) error @pkg/cmd/server/api/v1/conversions.go
+</summary><div>
+
+```go
+func addDefaultingFuncs(scheme *runtime.Scheme) error {
+    return scheme.AddDefaultingFuncs(
+
+(snip)
+
+        func(obj *EtcdStorageConfig) {
+            if len(obj.KubernetesStorageVersion) == 0 {
+                obj.KubernetesStorageVersion = "v1"
+            }
+            if len(obj.KubernetesStoragePrefix) == 0 {
+                obj.KubernetesStoragePrefix = "kubernetes.io"
+            }
+            if len(obj.OpenShiftStorageVersion) == 0 {
+                obj.OpenShiftStorageVersion = internal.DefaultOpenShiftStorageVersionLevel
+            }
+            if len(obj.OpenShiftStoragePrefix) == 0 {
+                obj.OpenShiftStoragePrefix = "openshift.io"
+            }
+        },
+
+(snip)
+
+    )
+}
+```
+
+</div>
+</details>
