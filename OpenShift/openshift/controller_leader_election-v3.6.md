@@ -7,9 +7,7 @@
 </div>
 </details>
 
-<details><summary>
-func origin.NewLeaderElection() (plug.Plug, func(), error) @pkg/cmd/server/origin/leaderelection.go
-</summary><div>
+- func origin.NewLeaderElection() (plug.Plug, func(), error) @pkg/cmd/server/origin/leaderelection.go
 (https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
 
 ```go
@@ -119,7 +117,7 @@ func New(started bool) Plug {
 </details>
 
 <details><summary>
-type leaderlease.Leaser interface @pkg/util/leaderlease/leaderlease.go
+func leaderlease.NewEtcd() Leaser @pkg/util/leaderlease/leaderlease.go
 </summary><div>
 
 ```go
@@ -134,16 +132,7 @@ type Leaser interface {
     // Release returns any active leases
     Release()
 }
-```
 
-</div>
-</details>
-
-<details><summary>
-type leaderlease.Etcd struct @pkg/util/leaderlease/leaderlease.go
-</summary><div>
-
-```go
 // Etcd takes and holds a leader lease until it can no longer confirm it owns
 // the lease, then returns.
 type Etcd struct {
@@ -164,16 +153,7 @@ type Etcd struct {
     // the shortest time between attempts to renew the lease
     minimumRetryInterval time.Duration
 }
-```
 
-</div>
-</details>
-
-<details><summary>
-func leaderlease.NewEtcd() Leaser @pkg/util/leaderlease/leaderlease.go
-</summary><div>
-
-```go
 // NewEtcd creates a Lease in etcd, storing value at key with expiration ttl
 // and continues to refresh it until the key is lost, expires, or another
 // client takes it.
@@ -233,9 +213,7 @@ func NewLeased(leaser Leaser) *Leased {
 </div>
 </details>
 
-<details><summary>
-func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
-</summary><div>
+- func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
 
 ```go
 // legacyLeaderElectionStart waits to verify lock has not been taken, then attempts to acquire and hold
@@ -272,7 +250,3 @@ func legacyLeaderElectionStart(id, name string, leased *plug.Leased, lock rl.Int
     }
 }
 ```
-
-</div>
-</details>
-
