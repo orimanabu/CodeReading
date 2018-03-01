@@ -1,13 +1,14 @@
 <details><summary>
-[]()
 </summary><div>
+
 ```go
 ```
+
 </div>
 </details>
 
 <details><summary>
-origin.NewLeaderElection() @pkg/cmd/server/origin/leaderelection.go
+func origin.NewLeaderElection() (plug.Plug, func(), error) @pkg/cmd/server/origin/leaderelection.go
 </summary><div>
 (https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
 
@@ -120,6 +121,7 @@ func New(started bool) Plug {
 <details><summary>
 type leaderlease.Leaser interface @pkg/util/leaderlease/leaderlease.go
 </summary><div>
+
 ```go
 // Leaser allows a caller to acquire a lease and be notified when it is lost.
 type Leaser interface {
@@ -133,6 +135,7 @@ type Leaser interface {
     Release()
 }
 ```
+
 </div>
 </details>
 
