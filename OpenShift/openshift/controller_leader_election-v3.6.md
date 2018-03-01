@@ -7,9 +7,9 @@
 </details>
 
 <details><summary>
-[origin.NewLeaderElection() @pkg/cmd/server/origin/leaderelection.go](https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
+origin.NewLeaderElection() @pkg/cmd/server/origin/leaderelection.go
 </summary><div>
-
+(https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
 ```go
 // NewLeaderElection returns a plug that blocks controller startup until the lease is acquired
 // and a function that will start the process to attain the lease. There are two modes for
@@ -67,7 +67,7 @@ func NewLeaderElection(options configapi.MasterConfig, leader componentconfig.Le
 </details>
 
 <details><summary>
-[plug related @pkg/cmd/util/plug/plug.go]()
+plug related @pkg/cmd/util/plug/plug.go
 </summary><div>
 ```go
 // Plug represents a synchronization primitive that holds and releases
@@ -114,7 +114,7 @@ func New(started bool) Plug {
 </details>
 
 <details><summary>
-[type leaderlease.Leaser interface @pkg/util/leaderlease/leaderlease.go]()
+type leaderlease.Leaser interface @pkg/util/leaderlease/leaderlease.go
 </summary><div>
 ```go
 // Leaser allows a caller to acquire a lease and be notified when it is lost.
@@ -133,7 +133,7 @@ type Leaser interface {
 </details>
 
 <details><summary>
-[type leaderlease.Etcd struct @pkg/util/leaderlease/leaderlease.go]()
+type leaderlease.Etcd struct @pkg/util/leaderlease/leaderlease.go
 </summary><div>
 ```go
 // Etcd takes and holds a leader lease until it can no longer confirm it owns
@@ -161,7 +161,7 @@ type Etcd struct {
 </details>
 
 <details><summary>
-[func leaderlease.NewEtcd() Leaser @pkg/util/leaderlease/leaderlease.go]()
+func leaderlease.NewEtcd() Leaser @pkg/util/leaderlease/leaderlease.go
 </summary><div>
 ```go
 // NewEtcd creates a Lease in etcd, storing value at key with expiration ttl
@@ -186,7 +186,7 @@ func NewEtcd(client etcdclient.Client, key, value string, ttl uint64) Leaser {
 </details>
 
 <details><summary>
-[func NewLeased() *Leased @pkg/cmd/util/plug/plug.go]()
+func NewLeased() *Leased @pkg/cmd/util/plug/plug.go
 </summary><div>
 ```go
 // Leaser controls access to a lease
@@ -221,7 +221,7 @@ func NewLeased(leaser Leaser) *Leased {
 </details>
 
 <details><summary>
-[func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go]()
+func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
 </summary><div>
 ```go
 // legacyLeaderElectionStart waits to verify lock has not been taken, then attempts to acquire and hold
