@@ -10,6 +10,7 @@
 origin.NewLeaderElection() @pkg/cmd/server/origin/leaderelection.go
 </summary><div>
 (https://github.com/openshift/origin/blob/release-3.6/pkg/cmd/server/origin/leaderelection.go)
+
 ```go
 // NewLeaderElection returns a plug that blocks controller startup until the lease is acquired
 // and a function that will start the process to attain the lease. There are two modes for
@@ -63,12 +64,14 @@ func NewLeaderElection(options configapi.MasterConfig, leader componentconfig.Le
         return leased, legacyLeaderElectionStart(id, name, leased, lock, ttl), nil
     }
 ```
+
 </div>
 </details>
 
 <details><summary>
 plug related @pkg/cmd/util/plug/plug.go
 </summary><div>
+
 ```go
 // Plug represents a synchronization primitive that holds and releases
 // execution for other objects.
@@ -110,6 +113,7 @@ func New(started bool) Plug {
     return p
 }
 ```
+
 </div>
 </details>
 
@@ -135,6 +139,7 @@ type Leaser interface {
 <details><summary>
 type leaderlease.Etcd struct @pkg/util/leaderlease/leaderlease.go
 </summary><div>
+
 ```go
 // Etcd takes and holds a leader lease until it can no longer confirm it owns
 // the lease, then returns.
@@ -157,12 +162,14 @@ type Etcd struct {
     minimumRetryInterval time.Duration
 }
 ```
+
 </div>
 </details>
 
 <details><summary>
 func leaderlease.NewEtcd() Leaser @pkg/util/leaderlease/leaderlease.go
 </summary><div>
+
 ```go
 // NewEtcd creates a Lease in etcd, storing value at key with expiration ttl
 // and continues to refresh it until the key is lost, expires, or another
@@ -182,12 +189,14 @@ func NewEtcd(client etcdclient.Client, key, value string, ttl uint64) Leaser {
     }
 }
 ```
+
 </div>
 </details>
 
 <details><summary>
 func NewLeased() *Leased @pkg/cmd/util/plug/plug.go
 </summary><div>
+
 ```go
 // Leaser controls access to a lease
 type Leaser interface {
@@ -217,12 +226,14 @@ func NewLeased(leaser Leaser) *Leased {
     }
 }
 ```
+
 </div>
 </details>
 
 <details><summary>
 func legacyLeaderElectionStart() func() @pkg/cmd/server/origin/leaderelection.go
 </summary><div>
+
 ```go
 // legacyLeaderElectionStart waits to verify lock has not been taken, then attempts to acquire and hold
 // the legacy lease. If it detects the lock is acquired it will stop immediately.
@@ -258,6 +269,7 @@ func legacyLeaderElectionStart(id, name string, leased *plug.Leased, lock rl.Int
     }
 }
 ```
+
 </div>
 </details>
 
