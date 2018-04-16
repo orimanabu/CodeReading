@@ -1077,7 +1077,7 @@ NXST_FLOW reply (xid=0x4):
 -no-shutdown \
 -boot strict=on \
 -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 \
--drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,<b>throttling.bps-read=1000000,throttling.bps-write=1024000</b> \
+-drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,<span style="font-wait:bold">throttling.bps-read=1000000,throttling.bps-write=1024000</span> \
 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 \
 -netdev tap,fd=31,id=hostnet0,vhost=on,vhostfd=33 \
 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:8d:f3:ae,bus=pci.0,addr=0x3 \
