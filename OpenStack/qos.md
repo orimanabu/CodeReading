@@ -479,6 +479,44 @@ actions: output enqueue set_vlan_vid set_vlan_pcp strip_vlan mod_dl_src mod_dl_d
 ```
 
 ```
+[root@comp-1 ~]# ovs-vsctl list interface | grep tap679563b6-d1 -A7 -B 26
+_uuid               : a99e9ecb-f19d-4232-9c1e-8dfa1b874e1e
+admin_state         : up
+bfd                 : {}
+bfd_status          : {}
+cfm_fault           : []
+cfm_fault_status    : []
+cfm_flap_count      : []
+cfm_health          : []
+cfm_mpid            : []
+cfm_remote_mpids    : []
+cfm_remote_opstate  : []
+duplex              : full
+error               : []
+external_ids        : {attached-mac="fa:16:3e:74:b8:a8", iface-id="679563b6-d1a2-498a-a431-f2b29c6f1538", iface-status=active, vm-id="9e6c9377-ff30-4aa8-9220-2e663dfd54b7"}
+ifindex             : 65
+ingress_policing_burst: 300
+ingress_policing_rate: 3000
+lacp_current        : []
+link_resets         : 1
+link_speed          : 10000000
+link_state          : up
+lldp                : {}
+mac                 : []
+mac_in_use          : "fe:16:3e:74:b8:a8"
+mtu                 : 1500
+mtu_request         : []
+name                : "tap679563b6-d1"
+ofport              : 26
+ofport_request      : []
+options             : {}
+other_config        : {}
+statistics          : {collisions=0, rx_bytes=0, rx_crc_err=0, rx_dropped=0, rx_errors=0, rx_frame_err=0, rx_over_err=0, rx_packets=0, tx_bytes=438, tx_dropped=0, tx_errors=0, tx_packets=5}
+status              : {driver_name=tun, driver_version="1.6", firmware_version=""}
+type                : ""
+```
+
+```
 [root@comp-1 ~]# tc qdisc show dev tap679563b6-d1
 qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
 qdisc ingress ffff: parent ffff:fff1 ----------------
@@ -1039,7 +1077,7 @@ NXST_FLOW reply (xid=0x4):
 -no-shutdown \
 -boot strict=on \
 -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 \
--drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000 \
+-drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,<b>throttling.bps-read=1000000,throttling.bps-write=1024000</b> \
 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 \
 -netdev tap,fd=31,id=hostnet0,vhost=on,vhostfd=33 \
 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:8d:f3:ae,bus=pci.0,addr=0x3 \
