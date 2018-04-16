@@ -143,6 +143,44 @@ openstack flavor set m1.resquota \
 +-----------------------------+----------------------------------------------------------------------------------------+
 ```
 
+```
+[stack@director ~]$ openstack server create --wait --flavor m1.normal  --key-name sshkey_test --image rhel7 --security-group sg_test --network mplane_vlan11 --network provider_test15 --network provider_test16 --availability-zone az_vlan vm_neutron_qos
+
++-----------------------------+----------------------------------------------------------------------------------------+
+| Field                       | Value                                                                                  |
++-----------------------------+----------------------------------------------------------------------------------------+
+| OS-DCF:diskConfig           | MANUAL                                                                                 |
+| OS-EXT-AZ:availability_zone | az_vlan                                                                                |
+| OS-EXT-STS:power_state      | Running                                                                                |
+| OS-EXT-STS:task_state       | None                                                                                   |
+| OS-EXT-STS:vm_state         | active                                                                                 |
+| OS-SRV-USG:launched_at      | 2018-04-16T13:21:24.000000                                                             |
+| OS-SRV-USG:terminated_at    | None                                                                                   |
+| accessIPv4                  |                                                                                        |
+| accessIPv6                  |                                                                                        |
+| addresses                   | mplane_vlan11=10.11.0.53; provider_test16=192.168.16.53; provider_test15=192.168.15.53 |
+| adminPass                   | U8NbAriWSbwU                                                                           |
+| config_drive                |                                                                                        |
+| created                     | 2018-04-16T13:21:11Z                                                                   |
+| flavor                      | m1.normal (ed846e28-510c-4ca8-8bd9-0e06f5de6461)                                       |
+| hostId                      | 708fc4d3217216cfed661ae2aaf627fec49f12437d221cf1fd1faed9                               |
+| id                          | 9e6c9377-ff30-4aa8-9220-2e663dfd54b7                                                   |
+| image                       | rhel7 (c11a1c31-f703-4ae6-a689-5a6b9a624625)                                           |
+| key_name                    | sshkey_test                                                                            |
+| name                        | vm_neutron_qos                                                                         |
+| progress                    | 0                                                                                      |
+| project_id                  | 995b4947cc4044fba99bade057053803                                                       |
+| properties                  |                                                                                        |
+| security_groups             | name='sg_test'                                                                         |
+|                             | name='sg_test'                                                                         |
+|                             | name='sg_test'                                                                         |
+| status                      | ACTIVE                                                                                 |
+| updated                     | 2018-04-16T13:21:24Z                                                                   |
+| user_id                     | 5a86b1db33b64571953b2022186010fe                                                       |
+| volumes_attached            |                                                                                        |
++-----------------------------+----------------------------------------------------------------------------------------+
+```
+
 ## CPU tuning
 
 ### m1.normal
@@ -347,25 +385,220 @@ filter parent 1: protocol all pref 1 fw handle 0x1 classid :1
 
 # Neutron
 
-```sh
-neutron qos-policy-create bw-limiter
-```
-
-```sh
-neutron qos-bandwidth-limit-rule-create bw-limiter --max-kbps 3000   --max-burst-kbps 300
-```
-
-```sh
+## Bandwidth
 
 ```
-
-```sh
-
+[stack@director ~]$ openstack network qos policy create bw-limiter
++-------------+--------------------------------------+
+| Field       | Value                                |
++-------------+--------------------------------------+
+| description |                                      |
+| id          | 3f828df0-aa14-4443-949c-f370e55ebb85 |
+| is_default  | False                                |
+| name        | bw-limiter                           |
+| project_id  | 80d05afc3ed94fa087db9c63be5bbe42     |
+| rules       | []                                   |
+| shared      | False                                |
++-------------+--------------------------------------+
 ```
 
-```sh
+```
+[stack@director ~]$ openstack network qos rule create --type bandwidth-limit --max-kbps 3000 --max-burst-kbits 300 --egress bw-limiter
++----------------+--------------------------------------+
+| Field          | Value                                |
++----------------+--------------------------------------+
+| direction      | egress                               |
+| id             | 8c4b887e-d69f-4b32-a9c3-b77b82b17311 |
+| max_burst_kbps | 300                                  |
+| max_kbps       | 3000                                 |
+| name           | None                                 |
+| project_id     |                                      |
++----------------+--------------------------------------+
+```
 
 ```
+[stack@director ~]$ openstack port list | grep 192.168.16.53
+| 679563b6-d1a2-498a-a431-f2b29c6f1538 |                       | fa:16:3e:74:b8:a8 | ip_address='192.168.16.53', subnet_id='2ddd1144-5961-4919-b70c-7b30cf983efd' | ACTIVE |
+```
+
+```
+[root@comp-1 ~]# ovs-ofctl show br-int
+OFPT_FEATURES_REPLY (xid=0x2): dpid:00006625ae757e4f
+n_tables:254, n_buffers:0
+capabilities: FLOW_STATS TABLE_STATS PORT_STATS QUEUE_STATS ARP_MATCH_IP
+actions: output enqueue set_vlan_vid set_vlan_pcp strip_vlan mod_dl_src mod_dl_dst mod_nw_src mod_nw_dst mod_nw_tos mod_tp_src mod_tp_dst
+<snip>
+ 26(tap679563b6-d1): addr:fe:16:3e:74:b8:a8
+     config:     0
+     state:      0
+     current:    10MB-FD COPPER
+     speed: 10 Mbps now, 0 Mbps max
+<snip>
+```
+
+```
+[stack@director ~]$ openstack port set 679563b6-d1a2-498a-a431-f2b29c6f1538 --qos-policy bw-limiter
+[stack@director ~]$ openstack port show 679563b6-d1a2-498a-a431-f2b29c6f1538
++-----------------------+------------------------------------------------------------------------------+
+| Field                 | Value                                                                        |
++-----------------------+------------------------------------------------------------------------------+
+| admin_state_up        | UP                                                                           |
+| allowed_address_pairs |                                                                              |
+| binding_host_id       | comp-1.ngpf.local                                                            |
+| binding_profile       |                                                                              |
+| binding_vif_details   | datapath_type='system', ovs_hybrid_plug='False', port_filter='True'          |
+| binding_vif_type      | ovs                                                                          |
+| binding_vnic_type     | normal                                                                       |
+| created_at            | 2018-04-16T13:21:15Z                                                         |
+| data_plane_status     | None                                                                         |
+| description           |                                                                              |
+| device_id             | 9e6c9377-ff30-4aa8-9220-2e663dfd54b7                                         |
+| device_owner          | compute:az_vlan                                                              |
+| dns_assignment        | None                                                                         |
+| dns_name              | None                                                                         |
+| extra_dhcp_opts       |                                                                              |
+| fixed_ips             | ip_address='192.168.16.53', subnet_id='2ddd1144-5961-4919-b70c-7b30cf983efd' |
+| id                    | 679563b6-d1a2-498a-a431-f2b29c6f1538                                         |
+| ip_address            | None                                                                         |
+| mac_address           | fa:16:3e:74:b8:a8                                                            |
+| name                  |                                                                              |
+| network_id            | f6ccca52-8f58-4a0d-b412-e6010cc8dc30                                         |
+| option_name           | None                                                                         |
+| option_value          | None                                                                         |
+| port_security_enabled | True                                                                         |
+| project_id            | 995b4947cc4044fba99bade057053803                                             |
+| qos_policy_id         | 3f828df0-aa14-4443-949c-f370e55ebb85                                         |
+| revision_number       | 9                                                                            |
+| security_group_ids    | 0efa2fbf-7f69-45fe-8471-7a6f5a0dd22d                                         |
+| status                | ACTIVE                                                                       |
+| subnet_id             | None                                                                         |
+| tags                  |                                                                              |
+| trunk_details         | None                                                                         |
+| updated_at            | 2018-04-16T13:35:45Z                                                         |
++-----------------------+------------------------------------------------------------------------------+
+```
+
+```
+[root@comp-1 ~]# tc qdisc show dev tap679563b6-d1
+qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
+qdisc ingress ffff: parent ffff:fff1 ----------------
+```
+
+```
+[root@comp-1 ~]# tc class show dev tap679563b6-d1
+[root@comp-1 ~]# tc class show dev tap679563b6-d1 root
+[root@comp-1 ~]# tc class show dev tap679563b6-d1 parent ffff:fff1
+```
+
+```
+[root@comp-1 ~]# tc filter show dev tap679563b6-d1 root
+filter parent ffff: protocol all pref 49 basic
+filter parent ffff: protocol all pref 49 basic handle 0x1
+ police 0xd rate 3000Kbit burst 38400b mtu 64Kb action drop overhead 0b
+ref 1 bind 1
+```
+
+```
+[root@comp-1 ~]# tc filter show dev tap679563b6-d1 parent ffff:fff1
+filter parent ffff: protocol all pref 49 basic
+filter parent ffff: protocol all pref 49 basic handle 0x1
+ police 0xd rate 3000Kbit burst 38400b mtu 64Kb action drop overhead 0b
+ref 1 bind 1
+```
+
+## DSCP marking
+
+```
+[stack@director ~]$ openstack network qos policy create dscp-marking
++-------------+--------------------------------------+
+| Field       | Value                                |
++-------------+--------------------------------------+
+| description |                                      |
+| id          | 3be649b0-1c77-469c-b182-645cea3d7931 |
+| is_default  | False                                |
+| name        | dscp-marking                         |
+| project_id  | 80d05afc3ed94fa087db9c63be5bbe42     |
+| rules       | []                                   |
+| shared      | False                                |
++-------------+--------------------------------------+
+```
+
+```
+[stack@director ~]$ openstack network qos rule create dscp-marking --type dscp-marking --dscp-mark 26
++------------+--------------------------------------+
+| Field      | Value                                |
++------------+--------------------------------------+
+| dscp_mark  | 26                                   |
+| id         | 12923ae9-7205-4b8f-98aa-3e1bdb71ae2a |
+| name       | None                                 |
+| project_id |                                      |
++------------+--------------------------------------+
+```
+
+```
+[stack@director ~]$ openstack port list | grep 192.168.15.53
+| 68fe8005-c472-4e14-9225-e023cc21a47e |                       | fa:16:3e:47:d6:e9 | ip_address='192.168.15.53', subnet_id='79ea83e9-554a-46f5-963c-2a3d4f053a2b' | ACTIVE |
+```
+
+```
+[stack@director ~]$ openstack port set 68fe8005-c472-4e14-9225-e023cc21a47e --qos-policy dscp-marking
+[stack@director ~]$ openstack port show 68fe8005-c472-4e14-9225-e023cc21a47e
++-----------------------+------------------------------------------------------------------------------+
+| Field                 | Value                                                                        |
++-----------------------+------------------------------------------------------------------------------+
+| admin_state_up        | UP                                                                           |
+| allowed_address_pairs |                                                                              |
+| binding_host_id       | comp-1.ngpf.local                                                            |
+| binding_profile       |                                                                              |
+| binding_vif_details   | datapath_type='system', ovs_hybrid_plug='False', port_filter='True'          |
+| binding_vif_type      | ovs                                                                          |
+| binding_vnic_type     | normal                                                                       |
+| created_at            | 2018-04-16T13:21:14Z                                                         |
+| data_plane_status     | None                                                                         |
+| description           |                                                                              |
+| device_id             | 9e6c9377-ff30-4aa8-9220-2e663dfd54b7                                         |
+| device_owner          | compute:az_vlan                                                              |
+| dns_assignment        | None                                                                         |
+| dns_name              | None                                                                         |
+| extra_dhcp_opts       |                                                                              |
+| fixed_ips             | ip_address='192.168.15.53', subnet_id='79ea83e9-554a-46f5-963c-2a3d4f053a2b' |
+| id                    | 68fe8005-c472-4e14-9225-e023cc21a47e                                         |
+| ip_address            | None                                                                         |
+| mac_address           | fa:16:3e:47:d6:e9                                                            |
+| name                  |                                                                              |
+| network_id            | fa0585ab-da08-423f-8b36-f2d9e4a169f6                                         |
+| option_name           | None                                                                         |
+| option_value          | None                                                                         |
+| port_security_enabled | True                                                                         |
+| project_id            | 995b4947cc4044fba99bade057053803                                             |
+| qos_policy_id         | 3be649b0-1c77-469c-b182-645cea3d7931                                         |
+| revision_number       | 9                                                                            |
+| security_group_ids    | 0efa2fbf-7f69-45fe-8471-7a6f5a0dd22d                                         |
+| status                | ACTIVE                                                                       |
+| subnet_id             | None                                                                         |
+| tags                  |                                                                              |
+| trunk_details         | None                                                                         |
+| updated_at            | 2018-04-16T14:07:21Z                                                         |
++-----------------------+------------------------------------------------------------------------------+
+```
+
+```
+[root@comp-1 ~]# ovs-ofctl dump-flows br-int
+NXST_FLOW reply (xid=0x4):
+ cookie=0xf8ec0bba40ce1ad5, duration=83.655s, table=0, n_packets=0, n_bytes=0, idle_age=83, priority=65535,reg2=0,in_port=25 actions=mod_nw_tos:104,load:0x37->NXM_NX_REG2[0..5],resubmit(,0)
+ cookie=0x6a2c0f73194aab10, duration=4802.839s, table=0, n_packets=1147, n_bytes=117336, idle_age=1057, priority=3,in_port=1,dl_vlan=11 actions=mod_vlan_vid:14,resubmit(,60)
+ cookie=0x6a2c0f73194aab10, duration=4800.839s, table=0, n_packets=0, n_bytes=0, idle_age=4800, priority=3,in_port=1,dl_vlan=15 actions=mod_vlan_vid:15,resubmit(,60)
+ cookie=0x6a2c0f73194aab10, duration=4798.834s, table=0, n_packets=0, n_bytes=0, idle_age=4798, priority=3,in_port=1,dl_vlan=16 actions=mod_vlan_vid:16,resubmit(,60)
+ cookie=0x6a2c0f73194aab10, duration=1589578.123s, table=0, n_packets=3184444, n_bytes=191795700, idle_age=0, hard_age=65534, priority=2,in_port=1 actions=drop
+ cookie=0x6a2c0f73194aab10, duration=1589578.892s, table=0, n_packets=362684, n_bytes=34978542, idle_age=1057, hard_age=65534, priority=0 actions=resubmit(,60)
+ cookie=0x6a2c0f73194aab10, duration=1589578.893s, table=23, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop
+ cookie=0x6a2c0f73194aab10, duration=1589578.889s, table=24, n_packets=0, n_bytes=0, idle_age=65534, hard_age=65534, priority=0 actions=drop
+ cookie=0x6a2c0f73194aab10, duration=4800.755s, table=60, n_packets=461, n_bytes=41376, idle_age=1089, priority=100,in_port=18 actions=load:0x12->NXM_NX_REG5[],load:0xe->NXM_NX_REG6[],resubmit(,71)
+<snip>
+```
+
+DSCP 26 = 011010 (Class AF31)
+TOS 104 = 0110 1000
 
 # Appendix
 
@@ -549,7 +782,44 @@ neutron qos-bandwidth-limit-rule-create bw-limiter --max-kbps 3000   --max-burst
 ## Qemu command line with m1.normal flavor
 
 ```
-/usr/libexec/qemu-kvm -name guest=instance-00000042,debug-threads=on -S -object secret,id=masterKey0,format=raw,file=/var/lib/libvirt/qemu/domain-11-instance-00000042/master-key.aes -machine pc-i440fx-rhel7.4.0,accel=kvm,usb=off,dump-guest-core=off -cpu Skylake-Client,ss=on,hypervisor=on,tsc_adjust=on,avx512f=on,avx512dq=on,clflushopt=on,avx512cd=on,avx512bw=on,avx512vl=on,pdpe1gb=on -m 1024 -realtime mlock=off -smp 1,sockets=1,cores=1,threads=1 -uuid 30ad89ac-5906-49ca-8d52-3c6343c598f6 -smbios type=1,manufacturer=Red Hat,product=OpenStack Compute,version=16.0.2-9.el7ost,serial=4c4c4544-004a-5310-804e-b9c04f504d32,uuid=30ad89ac-5906-49ca-8d52-3c6343c598f6,family=Virtual Machine -no-user-config -nodefaults -chardev socket,id=charmonitor,path=/var/lib/libvirt/qemu/domain-11-instance-00000042/monitor.sock,server,nowait -mon chardev=charmonitor,id=monitor,mode=control -rtc base=utc,driftfix=slew -global kvm-pit.lost_tick_policy=delay -no-hpet -no-shutdown -boot strict=on -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 -drive file=/var/lib/nova/instances/30ad89ac-5906-49ca-8d52-3c6343c598f6/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 -netdev tap,fd=32,id=hostnet0,vhost=on,vhostfd=34 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:be:fd:48,bus=pci.0,addr=0x3 -netdev tap,fd=35,id=hostnet1,vhost=on,vhostfd=36 -device virtio-net-pci,netdev=hostnet1,id=net1,mac=fa:16:3e:dc:dd:a8,bus=pci.0,addr=0x4 -netdev tap,fd=37,id=hostnet2,vhost=on,vhostfd=38 -device virtio-net-pci,netdev=hostnet2,id=net2,mac=fa:16:3e:66:02:79,bus=pci.0,addr=0x5 -add-fd set=6,fd=40 -chardev pty,id=charserial0,logfile=/dev/fdset/6,logappend=on -device isa-serial,chardev=charserial0,id=serial0 -device usb-tablet,id=input0,bus=usb.0,port=1 -vnc 10.20.0.101:1 -k en-us -device cirrus-vga,id=video0,bus=pci.0,addr=0x2 -device virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x7 -msg timestamp=on
+/usr/libexec/qemu-kvm \
+-name guest=instance-00000042,debug-threads=on \
+-S \
+-object secret,id=masterKey0,format=raw,file=/var/lib/libvirt/qemu/domain-11-instance-00000042/master-key.aes \
+-machine pc-i440fx-rhel7.4.0,accel=kvm,usb=off,dump-guest-core=off \
+-cpu Skylake-Client,ss=on,hypervisor=on,tsc_adjust=on,avx512f=on,avx512dq=on,clflushopt=on,avx512cd=on,avx512bw=on,avx512vl=on,pdpe1gb=on \
+-m 1024 \
+-realtime mlock=off \
+-smp 1,sockets=1,cores=1,threads=1 \
+-uuid 30ad89ac-5906-49ca-8d52-3c6343c598f6 \
+-smbios type=1,manufacturer=Red Hat,product=OpenStack Compute,version=16.0.2-9.el7ost,serial=4c4c4544-004a-5310-804e-b9c04f504d32,uuid=30ad89ac-5906-49ca-8d52-3c6343c598f6,family=Virtual Machine \
+-no-user-config \
+-nodefaults \
+-chardev socket,id=charmonitor,path=/var/lib/libvirt/qemu/domain-11-instance-00000042/monitor.sock,server,nowait \
+-mon chardev=charmonitor,id=monitor,mode=control \
+-rtc base=utc,driftfix=slew \
+-global kvm-pit.lost_tick_policy=delay \
+-no-hpet \
+-no-shutdown \
+-boot strict=on \
+-device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 \
+-drive file=/var/lib/nova/instances/30ad89ac-5906-49ca-8d52-3c6343c598f6/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none \
+-device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 \
+-netdev tap,fd=32,id=hostnet0,vhost=on,vhostfd=34 \
+-device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:be:fd:48,bus=pci.0,addr=0x3 \
+-netdev tap,fd=35,id=hostnet1,vhost=on,vhostfd=36 \
+-device virtio-net-pci,netdev=hostnet1,id=net1,mac=fa:16:3e:dc:dd:a8,bus=pci.0,addr=0x4 \
+-netdev tap,fd=37,id=hostnet2,vhost=on,vhostfd=38 \
+-device virtio-net-pci,netdev=hostnet2,id=net2,mac=fa:16:3e:66:02:79,bus=pci.0,addr=0x5 \
+-add-fd set=6,fd=40 \
+-chardev pty,id=charserial0,logfile=/dev/fdset/6,logappend=on \
+-device isa-serial,chardev=charserial0,id=serial0 \
+-device usb-tablet,id=input0,bus=usb.0,port=1 \
+-vnc 10.20.0.101:1 \
+-k en-us \
+-device cirrus-vga,id=video0,bus=pci.0,addr=0x2 \
+-device virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x7 \
+-msg timestamp=on
 ```
 
 ## libvirt XML with m1.resquota flavor
@@ -748,7 +1018,44 @@ neutron qos-bandwidth-limit-rule-create bw-limiter --max-kbps 3000   --max-burst
 ## Qemu command line with m1.resquota flavor
 
 ```
-/usr/libexec/qemu-kvm -name guest=instance-00000041,debug-threads=on -S -object secret,id=masterKey0,format=raw,file=/var/lib/libvirt/qemu/domain-10-instance-00000041/master-key.aes -machine pc-i440fx-rhel7.4.0,accel=kvm,usb=off,dump-guest-core=off -cpu Skylake-Client,ss=on,hypervisor=on,tsc_adjust=on,avx512f=on,avx512dq=on,clflushopt=on,avx512cd=on,avx512bw=on,avx512vl=on,pdpe1gb=on -m 1024 -realtime mlock=off -smp 1,sockets=1,cores=1,threads=1 -uuid 850724a4-029c-457b-a99d-3a18e8e413da -smbios type=1,manufacturer=Red Hat,product=OpenStack Compute,version=16.0.2-9.el7ost,serial=4c4c4544-004a-5310-804e-b9c04f504d32,uuid=850724a4-029c-457b-a99d-3a18e8e413da,family=Virtual Machine -no-user-config -nodefaults -chardev socket,id=charmonitor,path=/var/lib/libvirt/qemu/domain-10-instance-00000041/monitor.sock,server,nowait -mon chardev=charmonitor,id=monitor,mode=control -rtc base=utc,driftfix=slew -global kvm-pit.lost_tick_policy=delay -no-hpet -no-shutdown -boot strict=on -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 -drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 -netdev tap,fd=31,id=hostnet0,vhost=on,vhostfd=33 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:8d:f3:ae,bus=pci.0,addr=0x3 -netdev tap,fd=34,id=hostnet1,vhost=on,vhostfd=35 -device virtio-net-pci,netdev=hostnet1,id=net1,mac=fa:16:3e:60:1e:07,bus=pci.0,addr=0x4 -netdev tap,fd=36,id=hostnet2,vhost=on,vhostfd=37 -device virtio-net-pci,netdev=hostnet2,id=net2,mac=fa:16:3e:15:9c:1c,bus=pci.0,addr=0x5 -add-fd set=6,fd=39 -chardev pty,id=charserial0,logfile=/dev/fdset/6,logappend=on -device isa-serial,chardev=charserial0,id=serial0 -device usb-tablet,id=input0,bus=usb.0,port=1 -vnc 10.20.0.101:0 -k en-us -device cirrus-vga,id=video0,bus=pci.0,addr=0x2 -device virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x7 -msg timestamp=on
+/usr/libexec/qemu-kvm \
+-name guest=instance-00000041,debug-threads=on \
+-S \
+-object secret,id=masterKey0,format=raw,file=/var/lib/libvirt/qemu/domain-10-instance-00000041/master-key.aes \
+-machine pc-i440fx-rhel7.4.0,accel=kvm,usb=off,dump-guest-core=off \
+-cpu Skylake-Client,ss=on,hypervisor=on,tsc_adjust=on,avx512f=on,avx512dq=on,clflushopt=on,avx512cd=on,avx512bw=on,avx512vl=on,pdpe1gb=on \
+-m 1024 \
+-realtime mlock=off \
+-smp 1,sockets=1,cores=1,threads=1 \
+-uuid 850724a4-029c-457b-a99d-3a18e8e413da \
+-smbios type=1,manufacturer=Red Hat,product=OpenStack Compute,version=16.0.2-9.el7ost,serial=4c4c4544-004a-5310-804e-b9c04f504d32,uuid=850724a4-029c-457b-a99d-3a18e8e413da,family=Virtual Machine \
+-no-user-config \
+-nodefaults \
+-chardev socket,id=charmonitor,path=/var/lib/libvirt/qemu/domain-10-instance-00000041/monitor.sock,server,nowait \
+-mon chardev=charmonitor,id=monitor,mode=control \
+-rtc base=utc,driftfix=slew \
+-global kvm-pit.lost_tick_policy=delay \
+-no-hpet \
+-no-shutdown \
+-boot strict=on \
+-device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 \
+-drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000 \
+-device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 \
+-netdev tap,fd=31,id=hostnet0,vhost=on,vhostfd=33 \
+-device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:8d:f3:ae,bus=pci.0,addr=0x3 \
+-netdev tap,fd=34,id=hostnet1,vhost=on,vhostfd=35 \
+-device virtio-net-pci,netdev=hostnet1,id=net1,mac=fa:16:3e:60:1e:07,bus=pci.0,addr=0x4 \
+-netdev tap,fd=36,id=hostnet2,vhost=on,vhostfd=37 \
+-device virtio-net-pci,netdev=hostnet2,id=net2,mac=fa:16:3e:15:9c:1c,bus=pci.0,addr=0x5 \
+-add-fd set=6,fd=39 \
+-chardev pty,id=charserial0,logfile=/dev/fdset/6,logappend=on \
+-device isa-serial,chardev=charserial0,id=serial0 \
+-device usb-tablet,id=input0,bus=usb.0,port=1 \
+-vnc 10.20.0.101:0 \
+-k en-us \
+-device cirrus-vga,id=video0,bus=pci.0,addr=0x2 \
+-device virtio-balloon-pci,id=balloon0,bus=pci.0,addr=0x7 \
+-msg timestamp=on
 ```
 
 [Extra Spec](https://docs.openstack.org/nova/pike/admin/flavors.html#extra-specs)
