@@ -597,8 +597,8 @@ NXST_FLOW reply (xid=0x4):
 <snip>
 ```
 
-DSCP 26 = 011010 (Class AF31)
-TOS 104 = 0110 1000
+- DSCP 26 = 011010 (Class AF31)
+- TOS 104 = 0110 1000
 
 # Appendix
 
