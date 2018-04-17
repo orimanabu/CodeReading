@@ -1,4 +1,4 @@
-# QoS implementation - Nova vs Neutron
+# QoS implementation - Nova vs Neutron vs Cinder
 
 # Nova QoS
 
@@ -701,6 +701,124 @@ Tcpdump: "tos 0x68" means TOS field 104.
 Wireshark:
 
 ![DSCP marking pcap](qos.png "DSCP marking pcap")
+
+# Cinder QoS
+
+<details>
+<summary>
+Cinder QoS properties are propagated to Nova via connection info, then implemented as Qemu throttle.
+</summary>
+
+<div>
+In Cinder, QoS specs are parsed and set to connection info.
+
+- \_parse\_connection\_options() @cinder/volume/manager.py
+
+```python
+class VolumeManager(manager.CleanableManager,
+                    manager.SchedulerDependentManager):
+<snip>
+    def _parse_connection_options(self, context, volume, conn_info):
+        # Add qos_specs to connection info
+        typeid = volume.volume_type_id
+        specs = None
+        if typeid:
+            res = volume_types.get_volume_type_qos_specs(typeid)
+            qos = res['qos_specs']
+            # only pass qos_specs that is designated to be consumed by
+            # front-end, or both front-end and back-end.
+            if qos and qos.get('consumer') in ['front-end', 'both']:
+                specs = qos.get('specs')
+
+            if specs is not None:
+                # Compute fixed IOPS values for per-GB keys
+                if 'write_iops_sec_per_gb' in specs:
+                    specs['write_iops_sec'] = (
+                        int(specs['write_iops_sec_per_gb']) * int(volume.size))
+                    specs.pop('write_iops_sec_per_gb')
+
+                if 'read_iops_sec_per_gb' in specs:
+                    specs['read_iops_sec'] = (
+                        int(specs['read_iops_sec_per_gb']) * int(volume.size))
+                    specs.pop('read_iops_sec_per_gb')
+
+                if 'total_iops_sec_per_gb' in specs:
+                    specs['total_iops_sec'] = (
+                        int(specs['total_iops_sec_per_gb']) * int(volume.size))
+                    specs.pop('total_iops_sec_per_gb')
+
+        qos_spec = dict(qos_specs=specs)
+        conn_info['data'].update(qos_spec)
+```
+
+Nova gets QoS settings from the connection info and stores them to LibvirtConfigGuestDisk.
+
+- LibvirtBaseVolumeDriver.get\_config() @nova/virt/libvirt/volume/volume.py
+
+```python
+class LibvirtBaseVolumeDriver(object):
+<snip>
+    def get_config(self, connection_info, disk_info):
+        """Returns xml for libvirt."""
+        conf = vconfig.LibvirtConfigGuestDisk()
+<snip>
+        # Extract rate_limit control parameters
+        if 'qos_specs' in data and data['qos_specs']:
+            tune_opts = ['total_bytes_sec', 'read_bytes_sec',
+                         'write_bytes_sec', 'total_iops_sec',
+                         'read_iops_sec', 'write_iops_sec']
+            specs = data['qos_specs']
+            if isinstance(specs, dict):
+                for k, v in specs.items():
+                    if k in tune_opts:
+                        new_key = 'disk_' + k
+                        setattr(conf, new_key, v)
+            else:
+                LOG.warning('Unknown content in connection_info/'
+                            'qos_specs: %s', specs)
+
+```
+
+<iotune> element is generated from LibvirtConfigGuestDisk.
+
+- LibvirtConfigGuestDisk.format\_dom() @nova/virt/libvirt/config.py
+
+```python
+class LibvirtConfigGuestDisk(LibvirtConfigGuestDevice):
+<snip>
+    def format_dom(self):
+        iotune = etree.Element("iotune")
+
+        if self.disk_read_bytes_sec is not None:
+            iotune.append(self._text_node("read_bytes_sec",
+                self.disk_read_bytes_sec))
+
+        if self.disk_read_iops_sec is not None:
+            iotune.append(self._text_node("read_iops_sec",
+                self.disk_read_iops_sec))
+
+        if self.disk_write_bytes_sec is not None:
+            iotune.append(self._text_node("write_bytes_sec",
+                self.disk_write_bytes_sec))
+
+        if self.disk_write_iops_sec is not None:
+            iotune.append(self._text_node("write_iops_sec",
+                self.disk_write_iops_sec))
+
+        if self.disk_total_bytes_sec is not None:
+            iotune.append(self._text_node("total_bytes_sec",
+                self.disk_total_bytes_sec))
+
+        if self.disk_total_iops_sec is not None:
+            iotune.append(self._text_node("total_iops_sec",
+                self.disk_total_iops_sec))
+
+        if len(iotune) > 0:
+            dev.append(iotune)
+```
+
+</div>
+</details>
 
 # Appendix
 
