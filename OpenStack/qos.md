@@ -1762,9 +1762,12 @@ inet_open_passive(int style, const char *target, int default_port,
 
 # Cinder QoS
 
+- Cinder QoS properties are propagated to Nova via connection info, then implemented as Qemu throttle.
+- Nova gets QoS settings from the connection info and stores them to LibvirtConfigGuestDisk.
+
 <details>
 <summary>
-Cinder QoS properties are propagated to Nova via connection info, then implemented as Qemu throttle.
+Cinder side
 </summary>
 
 <div>
@@ -1808,6 +1811,15 @@ class VolumeManager(manager.CleanableManager,
         qos_spec = dict(qos_specs=specs)
         conn_info['data'].update(qos_spec)
 ```
+
+</div>
+</details>
+
+<details>
+<summary>
+Nova side
+</summary>
+<div>
 
 Nova gets QoS settings from the connection info and stores them to LibvirtConfigGuestDisk.
 
