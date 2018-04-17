@@ -1,28 +1,15 @@
-# NovaとNeutronのQoSの違い
+# QoS implementation - Nova vs Neutron
 
-# まずNovaのQoS
+# Nova QoS
 
-- m1.normal : QoSなしのflavor
-- m1.resquota : QoSありのflavor
+## Flavor
 
-## Create a flavor
+### m1.normal : a flavor without QoS properties
+
+Create a flavor without QoS properties.
+
 ```
 openstack flavor create --ram 1024 --disk 20 --vcpus 1 m1.normal
-openstack flavor create --ram 1024 --disk 20 --vcpus 1 m1.resquota
-```
-
-## Set QoS properties for the flavor
-```
-openstack flavor set m1.resquota \
---property quota:cpu_shares=512 \
---property quota:disk_read_bytes_sec=1000000 \
---property quota:disk_write_bytes_sec=1024000 \
---property quota:vif_outbound_average=32768 \
---property quota:vif_outbound_peak=65536 \
---property quota:vif_outbound_burst=131072 \
---property quota:vif_inbound_average=32768 \
---property quota:vif_inbound_peak=65536 \
---property quota:vif_inbound_burst=131072
 ```
 
 ```
@@ -45,6 +32,27 @@ openstack flavor set m1.resquota \
 +----------------------------+--------------------------------------------+
 ```
 
+### m1.resquota : a flavor with QoS properties
+
+Create a flavor with QoS properties.
+
+```
+openstack flavor create --ram 1024 --disk 20 --vcpus 1 m1.resquota
+```
+
+```
+openstack flavor set m1.resquota \
+--property quota:cpu_shares=512 \
+--property quota:disk_read_bytes_sec=1000000 \
+--property quota:disk_write_bytes_sec=1024000 \
+--property quota:vif_outbound_average=32768 \
+--property quota:vif_outbound_peak=65536 \
+--property quota:vif_outbound_burst=131072 \
+--property quota:vif_inbound_average=32768 \
+--property quota:vif_inbound_peak=65536 \
+--property quota:vif_inbound_burst=131072
+```
+
 ```
 [stack@director scripts]$ openstack flavor show m1.resquota
 +----------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
@@ -65,7 +73,9 @@ openstack flavor set m1.resquota \
 +----------------------------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+
 ```
 
-## Start an instance with the flavor
+## Instance
+
+### Create an insntance without QoS properties
 
 ```
 [stack@director ~]$ openstack server create --wait --flavor m1.normal  --key-name sshkey_test --image rhel7 --security-group sg_test --network mplane_vlan11 --network provider_test15 --network provider_test16 --availability-zone az_vlan vm_normal
@@ -104,6 +114,8 @@ openstack flavor set m1.resquota \
 | volumes_attached            |                                                                                        |
 +-----------------------------+----------------------------------------------------------------------------------------+
 ```
+
+### Create an instance with QoS properties
 
 ```
 [stack@director ~]$ openstack server create --wait --flavor m1.resquota  --key-name sshkey_test --image rhel7 --security-group sg_test --network mplane_vlan11 --network provider_test15 --network provider_test16 --availability-zone az_vlan vm_resquota
@@ -181,9 +193,9 @@ openstack flavor set m1.resquota \
 +-----------------------------+----------------------------------------------------------------------------------------+
 ```
 
-## CPU tuning
+## CPU QoS
 
-### m1.normal
+### Without QoS
 
 libvit XML:
 
@@ -200,9 +212,9 @@ Resulted cgroups setting:
 1024
 ```
 
-### m1.resquota
+### With QoS
 
-libvit XML:
+libvit XML: "quota:cpu_shares=512"
 
 ```xml
   <cputune>
@@ -217,16 +229,37 @@ Resulted cgroups setting:
 512
 ```
 
-Default cgroups setting:
+## Disk I/O QoS
+
+### Without QoS
+
+libvirt XML:
+
+```xml
+    <disk type='file' device='disk'>
+      <driver name='qemu' type='qcow2' cache='none'/>
+      <source file='/var/lib/nova/instances/30ad89ac-5906-49ca-8d52-3c6343c598f6/disk'/>
+      <backingStore type='file' index='1'>
+        <format type='raw'/>
+        <source file='/var/lib/nova/instances/_base/a24c93285792d6ac5a718a70a6ef23e119f98f54'/>
+        <backingStore/>
+      </backingStore>
+      <target dev='vda' bus='virtio'/>
+      <alias name='virtio-disk0'/>
+      <address type='pci' domain='0x0000' bus='0x00' slot='0x06' function='0x0'/>
+    </disk>
+```
+
+Qemu options:
 
 ```
-[root@comp-1 ~]# cat /sys/fs/cgroup/cpu/cpu.shares
-1024
+-drive file=/var/lib/nova/instances/30ad89ac-5906-49ca-8d52-3c6343c598f6/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none
 ```
 
-## Disk I/O tuning
 
-libvit XML:
+### With QoS
+
+libvit XML: with "quota:disk\_read\_bytes\_sec=1000000" and "quota:disk\_write\_bytes\_sec=1024000" flavor properties, disk related XML gets <iotune> element.
 
 ```xml
     <disk type='file' device='disk'>
@@ -247,7 +280,7 @@ libvit XML:
     </disk>
 ```
 
-Qemu options: throttling.bps-read, throttling.bps-write
+Qemu options: <iotune> elements are translated into throttling.bps-read and throttling.bps-write Qemu options.
 
 ```
 -drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000
@@ -255,9 +288,9 @@ Qemu options: throttling.bps-read, throttling.bps-write
 
 See also: [I/O scheduling, iotune and difference between read_bytes_sec and read_bytes_sec_max in qemu/kvm](https://access.redhat.com/solutions/3153531)
 
-## Network I/O tuning
+## Network QoS
 
-### m1.normal
+### Without QoS
 
 #### libvirt XML
 
@@ -291,11 +324,11 @@ qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1
 [root@comp-1 ~]# tc filter show dev tapb614c1d3-75
 ```
 
-### m1.reqauota
+### Wth QoS
 
 #### libvirt XML
 
-All interfaces got QoS settings from the flavor.
+All interfaces got QoS settings from the flavor as <bandwidth> elements.
 
 ```xml
     <interface type='bridge'>
@@ -383,9 +416,11 @@ filter parent 1: protocol all pref 1 fw
 filter parent 1: protocol all pref 1 fw handle 0x1 classid :1
 ```
 
-# Neutron
+# Neutron QoS
 
-## Bandwidth
+## Bandwidth QoS Policy
+
+Create a QoS policy.
 
 ```
 [stack@director ~]$ openstack network qos policy create bw-limiter
@@ -402,6 +437,8 @@ filter parent 1: protocol all pref 1 fw handle 0x1 classid :1
 +-------------+--------------------------------------+
 ```
 
+Create a QoS rule in the policy.
+
 ```
 [stack@director ~]$ openstack network qos rule create --type bandwidth-limit --max-kbps 3000 --max-burst-kbits 300 --egress bw-limiter
 +----------------+--------------------------------------+
@@ -415,6 +452,8 @@ filter parent 1: protocol all pref 1 fw handle 0x1 classid :1
 | project_id     |                                      |
 +----------------+--------------------------------------+
 ```
+
+Apply the Qos policy to a port connected to an instance.
 
 ```
 [stack@director ~]$ openstack port list | grep 192.168.16.53
@@ -478,6 +517,8 @@ actions: output enqueue set_vlan_vid set_vlan_pcp strip_vlan mod_dl_src mod_dl_d
 +-----------------------+------------------------------------------------------------------------------+
 ```
 
+The QoS parameters are set in ingress\_policing\_burst and ingress\_policing\_rate column in "interface" OVSDB table.
+
 ```
 [root@comp-1 ~]# ovs-vsctl list interface | grep tap679563b6-d1 -A7 -B 26
 _uuid               : a99e9ecb-f19d-4232-9c1e-8dfa1b874e1e
@@ -516,6 +557,8 @@ status              : {driver_name=tun, driver_version="1.6", firmware_version="
 type                : ""
 ```
 
+OVS sets the QoS policy as tc qdisc.
+
 ```
 [root@comp-1 ~]# tc qdisc show dev tap679563b6-d1
 qdisc pfifo_fast 0: root refcnt 2 bands 3 priomap  1 2 2 2 1 2 0 0 1 1 1 1 1 1 1 1
@@ -546,6 +589,8 @@ ref 1 bind 1
 
 ## DSCP marking
 
+Create a QoS policy.
+
 ```
 [stack@director ~]$ openstack network qos policy create dscp-marking
 +-------------+--------------------------------------+
@@ -561,6 +606,8 @@ ref 1 bind 1
 +-------------+--------------------------------------+
 ```
 
+Create a QoS rule in the policy.
+
 ```
 [stack@director ~]$ openstack network qos rule create dscp-marking --type dscp-marking --dscp-mark 26
 +------------+--------------------------------------+
@@ -572,6 +619,8 @@ ref 1 bind 1
 | project_id |                                      |
 +------------+--------------------------------------+
 ```
+
+Apply the Qos policy to a port connected to an instance.
 
 ```
 [stack@director ~]$ openstack port list | grep 192.168.15.53
@@ -620,6 +669,8 @@ ref 1 bind 1
 +-----------------------+------------------------------------------------------------------------------+
 ```
 
+OVS injects the DSCP mark using "mod\_nw\_tos" action.
+
 ```
 [root@comp-1 ~]# ovs-ofctl dump-flows br-int
 NXST_FLOW reply (xid=0x4):
@@ -635,8 +686,21 @@ NXST_FLOW reply (xid=0x4):
 <snip>
 ```
 
+Note that DiffServ code point 26 is equivalent for TOS value 104.
+
 - DSCP 26 = 011010 (Class AF31)
 - TOS 104 = 0110 1000
+
+Tcpdump: "tos 0x68" means TOS field 104.
+
+```
+09:11:27.086290 fa:16:3e:47:d6:e9 > fa:16:3e:17:d4:a9, ethertype 802.1Q (0x8100), length 102: vlan 15, p 0, ethertype IPv4, (tos 0x68, ttl 64, id 14955, offset 0, flags [DF], proto ICMP (1), length 84)
+    192.168.15.53 > 192.168.15.50: ICMP echo request, id 16632, seq 165, length 64
+```
+
+Wireshark:
+
+![DSCP marking pcap](qos.png "DSCP marking pcap")
 
 # Appendix
 
@@ -1077,7 +1141,7 @@ NXST_FLOW reply (xid=0x4):
 -no-shutdown \
 -boot strict=on \
 -device piix3-usb-uhci,id=usb,bus=pci.0,addr=0x1.0x2 \
--drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,<span style="font-wait:bold">throttling.bps-read=1000000,throttling.bps-write=1024000</span> \
+-drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000 \
 -device virtio-blk-pci,scsi=off,bus=pci.0,addr=0x6,drive=drive-virtio-disk0,id=virtio-disk0,bootindex=1 \
 -netdev tap,fd=31,id=hostnet0,vhost=on,vhostfd=33 \
 -device virtio-net-pci,netdev=hostnet0,id=net0,mac=fa:16:3e:8d:f3:ae,bus=pci.0,addr=0x3 \
