@@ -2365,21 +2365,21 @@ class LibvirtConfigGuestDisk(LibvirtConfigGuestDevice):
 
 # References
 
-[Extra Spec](https://docs.openstack.org/nova/pike/admin/flavors.html#extra-specs)
-[Pike Flavors](https://docs.openstack.org/nova/pike/admin/flavors.html)
-[DSCP marking BP](https://blueprints.launchpad.net/neutron/+spec/ml2-ovs-qos-with-dscp)
-[DSCP marking](https://specs.openstack.org/openstack/neutron-specs/specs/newton/ml2-qos-with-dscp.html)
-[Neutron QoS](https://docs.openstack.org/neutron/latest/contributor/internals/quality_of_service.html)
-[Port QoS](https://docs.openstack.org/dragonflow/latest/specs/port_qos.html)
-[libvirt xml](https://libvirt.org/formatdomain.html)
-[Resource Quota](https://wiki.openstack.org/wiki/InstanceResourceQuota)
+- [Extra Spec](https://docs.openstack.org/nova/pike/admin/flavors.html#extra-specs)
+- [Pike Flavors](https://docs.openstack.org/nova/pike/admin/flavors.html)
+- [DSCP marking BP](https://blueprints.launchpad.net/neutron/+spec/ml2-ovs-qos-with-dscp)
+- [DSCP marking](https://specs.openstack.org/openstack/neutron-specs/specs/newton/ml2-qos-with-dscp.html)
+- [Neutron QoS](https://docs.openstack.org/neutron/latest/contributor/internals/quality_of_service.html)
+- [Port QoS](https://docs.openstack.org/dragonflow/latest/specs/port_qos.html)
+- [libvirt xml](https://libvirt.org/formatdomain.html)
+- [Resource Quota](https://wiki.openstack.org/wiki/InstanceResourceQuota)
 
-[Openstack Network QoS intro](http://stanzgy.github.io/nova-network-qos/#slide1)
-[Neutron DSCP (pdf)](https://www.openstack.org/assets/presentation-media/Neutron-DSCP-Policing-Your-Network2.pdf)
+- [Openstack Network QoS intro](http://stanzgy.github.io/nova-network-qos/#slide1)
+- [Neutron DSCP (pdf)](https://www.openstack.org/assets/presentation-media/Neutron-DSCP-Policing-Your-Network2.pdf)
 
-[OVS QoS](http://d.hatena.ne.jp/oraccha/20120723/1343034433)
-[Qemu throttle](https://github.com/qemu/qemu/blob/master/docs/throttle.txt)
+- [OVS QoS](http://d.hatena.ne.jp/oraccha/20120723/1343034433)
+- [Qemu throttle](https://github.com/qemu/qemu/blob/master/docs/throttle.txt)
 
-[I/O scheduling, iotune and difference between read_bytes_sec and read_bytes_sec_max in qemu/kvm](https://access.redhat.com/solutions/3153531)
+- [I/O scheduling, iotune and difference between read_bytes_sec and read_bytes_sec_max in qemu/kvm](https://access.redhat.com/solutions/3153531)
 
-[仮想マシンのリソース制限 (pdf)](http://www.hitachi.co.jp/Prod/comp/soft1/openstack/pdf/17th_opnstk_users_event20140120.pdf)
+- [仮想マシンのリソース制限 (pdf)](http://www.hitachi.co.jp/Prod/comp/soft1/openstack/pdf/17th_opnstk_users_event20140120.pdf)
