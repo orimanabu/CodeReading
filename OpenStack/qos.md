@@ -11,7 +11,7 @@
 | Neutron | DSCP marking | neutron => ovs |
 | Cinder | Disk | cinder => nova => libvirt => qemu |
 
-# Nova QoS
+# Preparation
 
 ## Flavor
 
@@ -203,6 +203,8 @@ openstack flavor set m1.resquota \
 | volumes_attached            |                                                                                        |
 +-----------------------------+----------------------------------------------------------------------------------------+
 ```
+
+# Nova QoS
 
 ## CPU QoS
 
