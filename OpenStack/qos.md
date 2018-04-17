@@ -26,6 +26,8 @@ neutron => ovs
 
 cinder => nova => libvirt => qemu throttle
 
+| Componnt | Resource | Implementation |
+|:---------|:---------|:---------------|
 | Nova | CPU | nova => cgroups |
 | Nova | Disk | nova => libvirt => qemu |
 | Nova | Network | nova => libvirt => tc |
