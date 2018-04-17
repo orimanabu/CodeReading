@@ -5,11 +5,11 @@
 | Componnt | Resource | Implementation |
 |:---------|:---------|:---------------|
 | Nova | CPU | nova => cgroups |
-| Nova | Disk | nova => libvirt => qemu |
+| Nova | Disk | nova => libvirt => qemu throttle |
 | Nova | Network | nova => libvirt => tc |
-| Neutron | Bandwidth | neutron => ovs => tc |
-| Neutron | DSCP marking | neutron => ovs |
-| Cinder | Disk | cinder => nova => libvirt => qemu |
+| Neutron | Bandwidth | neutron => ovsdb => ovs => tc |
+| Neutron | DSCP marking | neutron => ovs => flow entry |
+| Cinder | Disk | cinder => nova => libvirt => qemu throttle |
 
 # Preparation
 
@@ -2363,16 +2363,13 @@ class LibvirtConfigGuestDisk(LibvirtConfigGuestDevice):
 -msg timestamp=on
 ```
 
+# References
+
 [Extra Spec](https://docs.openstack.org/nova/pike/admin/flavors.html#extra-specs)
-[Create](https://docs.openstack.org/nova/pike/admin/flavors2.html#create-a-flavor)
 [Pike Flavors](https://docs.openstack.org/nova/pike/admin/flavors.html)
-[Supported QoS rule types](https://docs.openstack.org/neutron/pike/admin/config-qos.html#supported-qos-rule-types)
 [DSCP marking BP](https://blueprints.launchpad.net/neutron/+spec/ml2-ovs-qos-with-dscp)
 [DSCP marking](https://specs.openstack.org/openstack/neutron-specs/specs/newton/ml2-qos-with-dscp.html)
-[Using OpenStack Networking with QoS](https://docs.openstack.org/liberty/ja/networking-guide/adv-config-qos.html)
-[Neutron QoS API workflow](https://gist.github.com/sc68cal/6689999)
 [Neutron QoS](https://docs.openstack.org/neutron/latest/contributor/internals/quality_of_service.html)
-(https://ask.openstack.org/en/question/109689/qos-neutron-bandwidth-limit-method/)
 [Port QoS](https://docs.openstack.org/dragonflow/latest/specs/port_qos.html)
 [libvirt xml](https://libvirt.org/formatdomain.html)
 [Resource Quota](https://wiki.openstack.org/wiki/InstanceResourceQuota)
