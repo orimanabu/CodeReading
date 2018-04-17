@@ -447,7 +447,7 @@ Qemu options:
 
 ### With QoS
 
-libvit XML: with "quota:disk\_read\_bytes\_sec=1000000" and "quota:disk\_write\_bytes\_sec=1024000" flavor properties, disk related XML gets <iotune> element.
+libvit XML: with "quota:disk\_read\_bytes\_sec=1000000" and "quota:disk\_write\_bytes\_sec=1024000" flavor properties, disk related XML gets \<iotune\> element.
 
 ```xml
     <disk type='file' device='disk'>
@@ -468,7 +468,7 @@ libvit XML: with "quota:disk\_read\_bytes\_sec=1000000" and "quota:disk\_write\_
     </disk>
 ```
 
-Qemu options: <iotune> elements are translated into throttling.bps-read and throttling.bps-write Qemu options.
+Qemu options: \<iotune\> elements are translated into throttling.bps-read and throttling.bps-write Qemu options.
 
 ```
 -drive file=/var/lib/nova/instances/850724a4-029c-457b-a99d-3a18e8e413da/disk,format=qcow2,if=none,id=drive-virtio-disk0,cache=none,throttling.bps-read=1000000,throttling.bps-write=1024000
@@ -480,9 +480,11 @@ See also: [I/O scheduling, iotune and difference between read_bytes_sec and read
 
 <details>
 <summary>
-Nova side - \<iotune\> element is generated from LibvirtConfigGuestDisk.
+Nova side
 </summary>
 <div>
+
+\<iotune\> element is generated from LibvirtConfigGuestDisk.
 
 - LibvirtConfigGuestDisk.format\_dom() @nova/virt/libvirt/config.py
 
