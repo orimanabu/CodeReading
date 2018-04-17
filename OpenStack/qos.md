@@ -779,7 +779,7 @@ class LibvirtBaseVolumeDriver(object):
 
 ```
 
-<iotune> element is generated from LibvirtConfigGuestDisk.
+\<iotune\> element is generated from LibvirtConfigGuestDisk.
 
 - LibvirtConfigGuestDisk.format\_dom() @nova/virt/libvirt/config.py
 
