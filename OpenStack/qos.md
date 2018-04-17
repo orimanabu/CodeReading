@@ -2,7 +2,7 @@
 
 ## Summary
 
-| Componnt | Resource | Implementation |
+| Componnt | QoS Resource | Implementation |
 |:---------|:---------|:---------------|
 | Nova | CPU | nova => cgroups |
 | Nova | Disk | nova => libvirt => qemu throttle |
