@@ -986,6 +986,308 @@ filter parent ffff: protocol all pref 49 basic handle 0x1
 ref 1 bind 1
 ```
 
+### Code Reading
+
+<details>
+<summary>
+Neutron side
+</summary>
+<div>
+
+- class QosOVSAgentDriver @neutron/plugins/ml2/drivers/openvswitch/agent/extension\_drivers/qos\_driver.py
+
+```python
+class QosOVSAgentDriver(qos.QosLinuxAgentDriver):
+<snip>
+    def create_bandwidth_limit(self, port, rule):
+        self.update_bandwidth_limit(port, rule)
+
+    def update_bandwidth_limit(self, port, rule):
+        vif_port = port.get('vif_port')
+        if not vif_port:
+            port_id = port.get('port_id')
+            LOG.debug("update_bandwidth_limit was received for port %s but "
+                      "vif_port was not found. It seems that port is already "
+                      "deleted", port_id)
+            return
+        if rule.direction == constants.INGRESS_DIRECTION:
+            self._update_ingress_bandwidth_limit(vif_port, rule)
+        else:
+            self._update_egress_bandwidth_limit(vif_port, rule)
+<snip>
+    def _update_egress_bandwidth_limit(self, vif_port, rule):
+        max_kbps = rule.max_kbps
+        # NOTE(slaweq): According to ovs docs:
+        # http://openvswitch.org/support/dist-docs/ovs-vswitchd.conf.db.5.html
+        # ovs accepts only integer values of burst:
+        max_burst_kbps = int(self._get_egress_burst_value(rule))
+
+        self.br_int.create_egress_bw_limit_for_port(vif_port.port_name,
+                                                    max_kbps,
+                                                    max_burst_kbps)
+
+    def _update_ingress_bandwidth_limit(self, vif_port, rule):
+        port_name = vif_port.port_name
+        max_kbps = rule.max_kbps or 0
+        max_burst_kbps = rule.max_burst_kbps or 0
+
+        self.br_int.update_ingress_bw_limit_for_port(
+            port_name,
+            max_kbps,
+            max_burst_kbps
+        )
+```
+
+- class OVSBridge @neutron/agent/common/ovs_lib.py
+
+```python
+class OVSBridge(BaseOVS):
+<snip>
+    def _set_egress_bw_limit_for_port(self, port_name, max_kbps,
+                                      max_burst_kbps):
+        with self.ovsdb.transaction(check_error=True) as txn:
+            txn.add(self.ovsdb.db_set('Interface', port_name,
+                                      ('ingress_policing_rate', max_kbps)))
+            txn.add(self.ovsdb.db_set('Interface', port_name,
+                                      ('ingress_policing_burst',
+                                       max_burst_kbps)))
+
+    def create_egress_bw_limit_for_port(self, port_name, max_kbps,
+                                        max_burst_kbps):
+        self._set_egress_bw_limit_for_port(
+            port_name, max_kbps, max_burst_kbps)
+```
+
+</div>
+</details>
+
+<details>
+<summary>
+OVS side
+</summary>
+<div>
+
+- iface\_configure\_qos() @openvswitch-2.7.3/vswitchd/bridge.c
+
+```c
+static void
+iface_configure_qos(struct iface *iface, const struct ovsrec_qos *qos)
+{
+<snip>
+    netdev_set_policing(iface->netdev,
+                        MIN(UINT32_MAX, iface->cfg->ingress_policing_rate),
+                        MIN(UINT32_MAX, iface->cfg->ingress_policing_burst));
+<snip>
+}
+```
+
+- netdev\_set\_policing() @openvswitch-2.7.3/lib/netdev.c
+
+```c
+/* Attempts to set input rate limiting (policing) policy, such that up to
+ * 'kbits_rate' kbps of traffic is accepted, with a maximum accumulative burst
+ * size of 'kbits' kb. */
+int
+netdev_set_policing(struct netdev *netdev, uint32_t kbits_rate,
+                    uint32_t kbits_burst)
+{
+    return (netdev->netdev_class->set_policing
+            ? netdev->netdev_class->set_policing(netdev,
+                    kbits_rate, kbits_burst)
+            : EOPNOTSUPP);
+}
+```
+
+- struct netdev\_class netdev\_linux\_class @openvswitch-2.7.3/lib/netdev-linux.c
+
+```c
+#define NETDEV_LINUX_CLASS(NAME, CONSTRUCT, GET_STATS,          \
+                           GET_FEATURES, GET_STATUS)            \
+{                                                               \
+    NAME,                                                       \
+    false,                      /* is_pmd */                    \
+                                                                \
+    NULL,                                                       \
+    netdev_linux_run,                                           \
+    netdev_linux_wait,                                          \
+<snip>
+    netdev_linux_set_policing,                                  \
+<snip>
+}
+
+<snip>
+
+const struct netdev_class netdev_linux_class =
+    NETDEV_LINUX_CLASS(
+        "system",
+        netdev_linux_construct,
+        netdev_linux_get_stats,
+        netdev_linux_get_features,
+        netdev_linux_get_status);
+```
+
+- netdev\_linux\_set\_policing() @openvswitch-2.7.3/lib/netdev-linux.c
+
+```c
+/* Attempts to set input rate limiting (policing) policy.  Returns 0 if
+ * successful, otherwise a positive errno value. */
+static int
+netdev_linux_set_policing(struct netdev *netdev_,
+                          uint32_t kbits_rate, uint32_t kbits_burst)
+{
+<snip>
+    COVERAGE_INC(netdev_set_policing);
+    /* Remove any existing ingress qdisc. */
+    error = tc_add_del_ingress_qdisc(netdev_, false);
+    if (error) {
+        VLOG_WARN_RL(&rl, "%s: removing policing failed: %s",
+                     netdev_name, ovs_strerror(error));
+        goto out;
+    }
+
+    if (kbits_rate) {
+        error = tc_add_del_ingress_qdisc(netdev_, true);
+        if (error) {
+            VLOG_WARN_RL(&rl, "%s: adding policing qdisc failed: %s",
+                         netdev_name, ovs_strerror(error));
+            goto out;
+        }
+
+        error = tc_add_policer(netdev_, kbits_rate, kbits_burst);
+        if (error){
+            VLOG_WARN_RL(&rl, "%s: adding policing action failed: %s",
+                    netdev_name, ovs_strerror(error));
+            goto out;
+        }
+    }
+
+    netdev->kbits_rate = kbits_rate;
+    netdev->kbits_burst = kbits_burst;
+<snip>
+}
+```
+
+- tc\_add\_del\_ingress\_qdisc() @openvswitch-2.7.3/lib/netdev-linux.c
+
+```c
+/* Adds or deletes a root ingress qdisc on 'netdev'.  We use this for
+ * policing configuration.
+ *
+ * This function is equivalent to running the following when 'add' is true:
+ *     /sbin/tc qdisc add dev <devname> handle ffff: ingress
+ *
+ * This function is equivalent to running the following when 'add' is false:
+ *     /sbin/tc qdisc del dev <devname> handle ffff: ingress
+ *
+ * The configuration and stats may be seen with the following command:
+ *     /sbin/tc -s qdisc show dev <devname>
+ *
+ * Returns 0 if successful, otherwise a positive errno value.
+ */
+static int
+tc_add_del_ingress_qdisc(struct netdev *netdev, bool add)
+{
+    struct ofpbuf request;
+    struct tcmsg *tcmsg;
+    int error;
+    int type = add ? RTM_NEWQDISC : RTM_DELQDISC;
+    int flags = add ? NLM_F_EXCL | NLM_F_CREATE : 0;
+
+    tcmsg = tc_make_request(netdev, type, flags, &request);
+    if (!tcmsg) {
+        return ENODEV;
+    }
+    tcmsg->tcm_handle = tc_make_handle(0xffff, 0);
+    tcmsg->tcm_parent = TC_H_INGRESS;
+    nl_msg_put_string(&request, TCA_KIND, "ingress");
+    nl_msg_put_unspec(&request, TCA_OPTIONS, NULL, 0);
+
+    error = tc_transact(&request, NULL);
+    if (error) {
+        /* If we're deleting the qdisc, don't worry about some of the
+         * error conditions. */
+        if (!add && (error == ENOENT || error == EINVAL)) {
+            return 0;
+        }
+        return error;
+    }
+
+    return 0;
+}
+```
+
+- tc\_add\_policer() @openvswitch-2.7.3/lib/netdev-linux.c
+
+```c
+/* Adds a policer to 'netdev' with a rate of 'kbits_rate' and a burst size
+ * of 'kbits_burst'.
+ *
+ * This function is equivalent to running:
+ *     /sbin/tc filter add dev <devname> parent ffff: protocol all prio 49
+ *              basic police rate <kbits_rate>kbit burst <kbits_burst>k
+ *              mtu 65535 drop
+ *
+ * The configuration and stats may be seen with the following command:
+ *     /sbin/tc -s filter show dev <devname> parent ffff:
+ *
+ * Returns 0 if successful, otherwise a positive errno value.
+ */
+static int
+tc_add_policer(struct netdev *netdev,
+               uint32_t kbits_rate, uint32_t kbits_burst)
+{
+    struct tc_police tc_police;
+    struct ofpbuf request;
+    struct tcmsg *tcmsg;
+    size_t basic_offset;
+    size_t police_offset;
+    int error;
+    int mtu = 65535;
+
+    memset(&tc_police, 0, sizeof tc_police);
+    tc_police.action = TC_POLICE_SHOT;
+    tc_police.mtu = mtu;
+    tc_fill_rate(&tc_police.rate, ((uint64_t) kbits_rate * 1000)/8, mtu);
+
+    /* The following appears wrong in one way: In networking a kilobit is
+     * usually 1000 bits but this uses 1024 bits.
+     *
+     * However if you "fix" those problems then "tc filter show ..." shows
+     * "125000b", meaning 125,000 bits, when OVS configures it for 1000 kbit ==
+     * 1,000,000 bits, whereas this actually ends up doing the right thing from
+     * tc's point of view.  Whatever. */
+    tc_police.burst = tc_bytes_to_ticks(
+        tc_police.rate.rate, MIN(UINT32_MAX / 1024, kbits_burst) * 1024 / 8);
+
+    tcmsg = tc_make_request(netdev, RTM_NEWTFILTER,
+                            NLM_F_EXCL | NLM_F_CREATE, &request);
+    if (!tcmsg) {
+        return ENODEV;
+    }
+    tcmsg->tcm_parent = tc_make_handle(0xffff, 0);
+    tcmsg->tcm_info = tc_make_handle(49,
+                                     (OVS_FORCE uint16_t) htons(ETH_P_ALL));
+
+    nl_msg_put_string(&request, TCA_KIND, "basic");
+    basic_offset = nl_msg_start_nested(&request, TCA_OPTIONS);
+    police_offset = nl_msg_start_nested(&request, TCA_BASIC_POLICE);
+    nl_msg_put_unspec(&request, TCA_POLICE_TBF, &tc_police, sizeof tc_police);
+    tc_put_rtab(&request, TCA_POLICE_RATE, &tc_police.rate);
+    nl_msg_end_nested(&request, police_offset);
+    nl_msg_end_nested(&request, basic_offset);
+
+    error = tc_transact(&request, NULL);
+    if (error) {
+        return error;
+    }
+
+    return 0;
+}
+```
+
+</div>
+</details>
+
 ## DSCP marking
 
 Create a QoS policy.
