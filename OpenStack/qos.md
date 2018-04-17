@@ -26,6 +26,13 @@ neutron => ovs
 
 cinder => nova => libvirt => qemu throttle
 
+| Nova | CPU | nova => cgroups |
+| Nova | Disk | nova => libvirt => qemu |
+| Nova | Network | nova => libvirt => tc |
+| Neutron | Bandwidth | neutron => ovs => tc |
+| Neutron | DSCP marking | neutron => ovs |
+| Cinder | Disk | cinder => nova => libvirt => qemu |
+
 # Nova QoS
 
 ## Flavor
