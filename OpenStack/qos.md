@@ -1098,6 +1098,62 @@ netdev_set_policing(struct netdev *netdev, uint32_t kbits_rate,
 }
 ```
 
+- struct netdev\_class @openvswitch-2.7.3/lib/netdev-provider.h
+
+```c
+struct netdev_class {
+    /* Type of netdevs in this class, e.g. "system", "tap", "gre", etc.
+     *
+     * One of the providers should supply a "system" type, since this is
+     * the type assumed if no type is specified when opening a netdev.
+     * The "system" type corresponds to an existing network device on
+     * the system. */
+    const char *type;
+
+    /* If 'true' then this netdev should be polled by PMD threads. */
+    bool is_pmd;
+
+
+/* ## ------------------- ## */
+/* ## Top-Level Functions ## */
+/* ## ------------------- ## */
+
+    /* Called when the netdev provider is registered, typically at program
+     * startup.  Returning an error from this function will prevent any network
+     * device in this class from being opened.
+     *
+     * This function may be set to null if a network device class needs no
+     * initialization at registration time. */
+    int (*init)(void);
+
+    /* Performs periodic work needed by netdevs of this class.  May be null if
+     * no periodic work is necessary.
+     *
+     * 'netdev_class' points to the class.  It is useful in case the same
+     * function is used to implement different classes. */
+    void (*run)(const struct netdev_class *netdev_class);
+
+    /* Arranges for poll_block() to wake up if the "run" member function needs
+     * to be called.  Implementations are additionally required to wake
+     * whenever something changes in any of its netdevs which would cause their
+     * ->change_seq() function to change its result.  May be null if nothing is
+     * needed here.
+     *
+     * 'netdev_class' points to the class.  It is useful in case the same
+     * function is used to implement different classes. */
+    void (*wait)(const struct netdev_class *netdev_class);
+<snip>
+    /* Attempts to set input rate limiting (policing) policy, such that up to
+     * 'kbits_rate' kbps of traffic is accepted, with a maximum accumulative
+     * burst size of 'kbits' kb.
+     *
+     * This function may be set to null if policing is not supported. */
+    int (*set_policing)(struct netdev *netdev, unsigned int kbits_rate,
+                        unsigned int kbits_burst);
+<snip>
+}
+```
+
 - struct netdev\_class netdev\_linux\_class @openvswitch-2.7.3/lib/netdev-linux.c
 
 ```c
@@ -1212,7 +1268,7 @@ tc_add_del_ingress_qdisc(struct netdev *netdev, bool add)
         return error;
     }
 
-    return 0;
+p    return 0;
 }
 ```
 
@@ -1402,6 +1458,307 @@ Tcpdump: "tos 0x68" means TOS field 104.
 Wireshark:
 
 ![DSCP marking pcap](qos.png "DSCP marking pcap")
+
+## Code Reading
+
+<details>
+<summary>
+Neutron side
+</summary>
+<div>
+
+- class QosOVSAgentDriver @neutron/plugins/ml2/drivers/openvswitch/agent/extension\_drivers/qos\_driver.py
+
+```python
+class QosOVSAgentDriver(qos.QosLinuxAgentDriver):
+<snip>
+    def create_dscp_marking(self, port, rule):
+        self.update_dscp_marking(port, rule)
+
+    def update_dscp_marking(self, port, rule):
+        self.ports[port['port_id']][qos_consts.RULE_TYPE_DSCP_MARKING] = port
+        vif_port = port.get('vif_port')
+        if not vif_port:
+            port_id = port.get('port_id')
+            LOG.debug("update_dscp_marking was received for port %s but "
+                      "vif_port was not found. It seems that port is already "
+                      "deleted", port_id)
+            return
+        port_name = vif_port.port_name
+        port = self.br_int.get_port_ofport(port_name)
+        mark = rule.dscp_mark
+        #mark needs to be bit shifted 2 left to not overwrite the
+        #lower 2 bits of type of service packet header.
+        #source: man ovs-ofctl (/mod_nw_tos)
+        mark = str(mark << 2)
+
+        # reg2 is a metadata field that does not alter packets.
+        # By loading a value into this field and checking if the value is
+        # altered it allows the packet to be resubmitted and go through
+        # the flow table again to be identified by other flows.
+        flows = self.br_int.dump_flows_for(cookie=self.cookie, table=0,
+                                           in_port=port, reg2=0)
+        if not flows:
+            actions = ("mod_nw_tos:" + mark + ",load:55->NXM_NX_REG2[0..5]," +
+                       "resubmit(,0)")
+            self.br_int.add_flow(in_port=port, table=0, priority=65535,
+                                 reg2=0, actions=actions)
+        else:
+            for flow in flows:
+                actions = str(flow).partition("actions=")[2]
+                acts = actions.split(',')
+                # mod_nw_tos = modify type of service header
+                # This is the second byte of the IPv4 packet header.
+                # DSCP makes up the upper 6 bits of this header field.
+                actions = "mod_nw_tos:" + mark + ","
+                actions += ','.join([act for act in acts
+                                     if "mod_nw_tos:" not in act])
+                self.br_int.mod_flow(reg2=0, in_port=port, table=0,
+                                     actions=actions)
+```
+
+</div>
+</details>
+
+<details>
+<summary>
+OVS side
+</summary>
+<div>
+
+- OFPACTS macro @openvswitch-2.7.3/include/openvswitch/ofp-actions.h
+
+```c
+/* List of OVS abstracted actions.
+ *
+ * This macro is used directly only internally by this header, but the list is
+ * still of interest to developers.
+ *
+ * Each OFPACT invocation has the following parameters:
+ *
+ * 1. <ENUM>, used below in the enum definition of OFPACT_<ENUM>, and
+ *    elsewhere.
+ *
+ * 2. <STRUCT> corresponding to a structure "struct <STRUCT>", that must be
+ *    defined below.  This structure must be an abstract definition of the
+ *    action.  Its first member must have type "struct ofpact" and name
+ *    "ofpact".  It may be fixed length or end with a flexible array member
+ *    (e.g. "int member[];").
+ *
+ * 3. <MEMBER>, which has one of two possible values:
+ *
+ *        - If "struct <STRUCT>" is fixed-length, it must be "ofpact".
+ *
+ *        - If "struct <STRUCT>" is variable-length, it must be the name of the
+ *          flexible array member.
+ *
+ * 4. <NAME>, a quoted string that gives the name of the action, for use in
+ *    parsing actions from text.
+ */
+#define OFPACTS                                                         \
+    /* Output. */                                                       \
+    OFPACT(OUTPUT,          ofpact_output,      ofpact, "output")       \
+    OFPACT(GROUP,           ofpact_group,       ofpact, "group")        \
+    OFPACT(CONTROLLER,      ofpact_controller,  userdata, "controller") \
+    OFPACT(ENQUEUE,         ofpact_enqueue,     ofpact, "enqueue")      \
+    OFPACT(OUTPUT_REG,      ofpact_output_reg,  ofpact, "output_reg")   \
+    OFPACT(BUNDLE,          ofpact_bundle,      slaves, "bundle")       \
+                                                                        \
+    /* Header changes. */                                               \
+    OFPACT(SET_FIELD,       ofpact_set_field,   ofpact, "set_field")    \
+    OFPACT(SET_VLAN_VID,    ofpact_vlan_vid,    ofpact, "set_vlan_vid") \
+    OFPACT(SET_VLAN_PCP,    ofpact_vlan_pcp,    ofpact, "set_vlan_pcp") \
+    OFPACT(STRIP_VLAN,      ofpact_null,        ofpact, "strip_vlan")   \
+    OFPACT(PUSH_VLAN,       ofpact_null,        ofpact, "push_vlan")    \
+    OFPACT(SET_ETH_SRC,     ofpact_mac,         ofpact, "mod_dl_src")   \
+    OFPACT(SET_ETH_DST,     ofpact_mac,         ofpact, "mod_dl_dst")   \
+    OFPACT(SET_IPV4_SRC,    ofpact_ipv4,        ofpact, "mod_nw_src")   \
+    OFPACT(SET_IPV4_DST,    ofpact_ipv4,        ofpact, "mod_nw_dst")   \
+    OFPACT(SET_IP_DSCP,     ofpact_dscp,        ofpact, "mod_nw_tos")   \
+<snip>
+```
+
+- struct ofpact\_dscp @openvswitch-2.7.3/include/openvswitch/ofp-actions.h
+
+```c
+/* OFPACT_SET_IP_DSCP.
+ *
+ * Used for OFPAT10_SET_NW_TOS. */
+struct ofpact_dscp {
+    struct ofpact ofpact;
+    uint8_t dscp;               /* DSCP in high 6 bits, rest ignored. */
+};
+```
+
+- set\_dscp() @openvswitch-2.7.3/lib/socket-util.c
+
+```c
+/* Sets the DSCP value of socket 'fd' to 'dscp', which must be 63 or less.
+ * 'family' must indicate the socket's address family (AF_INET or AF_INET6, to
+ * do anything useful). */
+int
+set_dscp(int fd, int family, uint8_t dscp)
+{
+    int retval;
+    int val;
+
+#ifdef _WIN32
+    /* XXX: Consider using QoS2 APIs for Windows to set dscp. */
+    return 0;
+#endif
+
+    if (dscp > 63) {
+        return EINVAL;
+    }
+    val = dscp << 2;
+
+    switch (family) {
+    case AF_INET:
+        retval = setsockopt(fd, IPPROTO_IP, IP_TOS, &val, sizeof val);
+        break;
+
+    case AF_INET6:
+        retval = setsockopt(fd, IPPROTO_IPV6, IPV6_TCLASS, &val, sizeof val);
+        break;
+
+    default:
+        return ENOPROTOOPT;
+    }
+
+    return retval ? sock_errno() : 0;
+}
+```
+
+- inet\_open\_active() @openvswitch-2.7.3/lib/socket-util.c
+
+```c
+/* Opens a non-blocking IPv4 or IPv6 socket of the specified 'style' and
+ * connects to 'target', which should be a string in the format
+ * "<host>[:<port>]".  <host>, which is required, may be an IPv4 address or an
+ * IPv6 address enclosed in square brackets.  If 'default_port' is nonzero then
+ * <port> is optional and defaults to 'default_port'.
+ *
+ * 'style' should be SOCK_STREAM (for TCP) or SOCK_DGRAM (for UDP).
+ *
+ * On success, returns 0 (indicating connection complete) or EAGAIN (indicating
+ * connection in progress), in which case the new file descriptor is stored
+ * into '*fdp'.  On failure, returns a positive errno value other than EAGAIN
+ * and stores -1 into '*fdp'.
+ *
+ * If 'ss' is non-null, then on success stores the target address into '*ss'.
+ *
+ * 'dscp' becomes the DSCP bits in the IP headers for the new connection.  It
+ * should be in the range [0, 63] and will automatically be shifted to the
+ * appropriately place in the IP tos field. */
+int
+inet_open_active(int style, const char *target, uint16_t default_port,
+                 struct sockaddr_storage *ssp, int *fdp, uint8_t dscp)
+{
+<snip>
+    /* Create non-blocking socket. */
+    fd = socket(ss.ss_family, style, 0);
+    if (fd < 0) {
+        error = sock_errno();
+        VLOG_ERR("%s: socket: %s", target, sock_strerror(error));
+        goto exit;
+    }
+    error = set_nonblocking(fd);
+    if (error) {
+        goto exit;
+    }
+
+    /* The dscp bits must be configured before connect() to ensure that the
+     * TOS field is set during the connection establishment.  If set after
+     * connect(), the handshake SYN frames will be sent with a TOS of 0. */
+    error = set_dscp(fd, ss.ss_family, dscp);
+    if (error) {
+        VLOG_ERR("%s: set_dscp: %s", target, sock_strerror(error));
+        goto exit;
+    }
+
+    /* Connect. */
+    error = connect(fd, (struct sockaddr *) &ss, ss_length(&ss)) == 0
+                    ? 0
+                    : sock_errno();
+<snip>
+}
+```
+
+- inet\_open\_passive() @openvswitch-2.7.3/lib/socket-util.c
+
+```c
+/* Opens a non-blocking IPv4 or IPv6 socket of the specified 'style', binds to
+ * 'target', and listens for incoming connections.  Parses 'target' in the same
+ * way was inet_parse_passive().
+ *
+ * 'style' should be SOCK_STREAM (for TCP) or SOCK_DGRAM (for UDP).
+ *
+ * For TCP, the socket will have SO_REUSEADDR turned on.
+ *
+ * On success, returns a non-negative file descriptor.  On failure, returns a
+ * negative errno value.
+ *
+ * If 'ss' is non-null, then on success stores the bound address into '*ss'.
+ *
+ * 'dscp' becomes the DSCP bits in the IP headers for the new connection.  It
+ * should be in the range [0, 63] and will automatically be shifted to the
+ * appropriately place in the IP tos field.
+ *
+ * If 'kernel_print_port' is true and the port is dynamically assigned by
+ * the kernel, print the chosen port. */
+int
+inet_open_passive(int style, const char *target, int default_port,
+                  struct sockaddr_storage *ssp, uint8_t dscp,
+                  bool kernel_print_port)
+{
+<snip>
+    /* Create non-blocking socket, set SO_REUSEADDR. */
+    fd = socket(ss.ss_family, style, 0);
+    if (fd < 0) {
+        error = sock_errno();
+        VLOG_ERR("%s: socket: %s", target, sock_strerror(error));
+        return -error;
+    }
+    error = set_nonblocking(fd);
+    if (error) {
+        goto error;
+    }
+    if (style == SOCK_STREAM
+        && setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof yes) < 0) {
+        error = sock_errno();
+        VLOG_ERR("%s: setsockopt(SO_REUSEADDR): %s",
+                 target, sock_strerror(error));
+        goto error;
+    }
+
+    /* Bind. */
+    if (bind(fd, (struct sockaddr *) &ss, ss_length(&ss)) < 0) {
+        error = sock_errno();
+        VLOG_ERR("%s: bind: %s", target, sock_strerror(error));
+        goto error;
+    }
+
+    /* The dscp bits must be configured before connect() to ensure that the TOS
+     * field is set during the connection establishment.  If set after
+     * connect(), the handshake SYN frames will be sent with a TOS of 0. */
+    error = set_dscp(fd, ss.ss_family, dscp);
+    if (error) {
+        VLOG_ERR("%s: set_dscp: %s", target, sock_strerror(error));
+        goto error;
+    }
+
+    /* Listen. */
+    if (style == SOCK_STREAM && listen(fd, 10) < 0) {
+        error = sock_errno();
+        VLOG_ERR("%s: listen: %s", target, sock_strerror(error));
+        goto error;
+    }
+<snip>
+}
+```
+
+</div>
+</details>
 
 # Cinder QoS
 
