@@ -229,6 +229,181 @@ Resulted cgroups setting:
 512
 ```
 
+### Code Reading
+
+<details>
+<summary>
+Nova side
+</summary>
+<div>
+
+- LibvirtDriver.\_update\_guest\_cputune() @nova/virt/libvirt/driver.py
+
+```python
+class LibvirtDriver(driver.ComputeDriver):
+<snip>
+    def _update_guest_cputune(self, guest, flavor, virt_type):
+<snip>
+        cputuning = ['shares', 'period', 'quota']
+<snip>
+        if guest.cputune is None:
+            guest.cputune = vconfig.LibvirtConfigGuestCPUTune()
+            # Setting the default cpu.shares value to be a value
+            # dependent on the number of vcpus
+        guest.cputune.shares = 1024 * guest.vcpus
+
+        for name in cputuning:
+            key = "quota:cpu_" + name
+            if key in flavor.extra_specs:
+                setattr(guest.cputune, name,
+                        int(flavor.extra_specs[key]))
+```
+
+- class LibvirtConfigGuestCPUTune @nova/virt/libvirt/config.py
+
+```python
+class LibvirtConfigGuestCPUTune(LibvirtConfigObject):
+
+    def __init__(self, **kwargs):
+        super(LibvirtConfigGuestCPUTune, self).__init__(root_name="cputune",
+                                                        **kwargs)
+<snip>
+
+    def format_dom(self):
+        root = super(LibvirtConfigGuestCPUTune, self).format_dom()
+
+        if self.shares is not None:
+            root.append(self._text_node("shares", str(self.shares)))
+<snip>
+```
+
+</div>
+</details>
+
+<details>
+<summary>
+Libvirt side
+</summary>
+<div>
+
+parsing
+
+- struct _virHypervisorDriver qemuHypervisorDriver @src/qemu/qemu\_driver.c
+
+```c
+static virHypervisorDriver qemuHypervisorDriver = {
+<snip>
+    .domainSetSchedulerParameters = qemuDomainSetSchedulerParameters, /* 0.7.0 */
+    .domainSetSchedulerParametersFlags = qemuDomainSetSchedulerParametersFlags, /* 0.9.2 */
+<snip>
+}
+```
+
+```c
+static int
+qemuDomainSetSchedulerParameters(virDomainPtr dom,
+                                 virTypedParameterPtr params,
+                                 int nparams)
+{
+    return qemuDomainSetSchedulerParametersFlags(dom,
+                                                 params,
+                                                 nparams,
+                                                 VIR_DOMAIN_AFFECT_CURRENT);
+}
+```
+
+```c
+static int
+qemuDomainSetSchedulerParametersFlags(virDomainPtr dom,
+                                      virTypedParameterPtr params,
+                                      int nparams,
+                                      unsigned int flags)
+{
+<snip>
+    for (i = 0; i < nparams; i++) {
+        virTypedParameterPtr param = &params[i];
+        value_ul = param->value.ul;
+        value_l = param->value.l;
+
+        if (STREQ(param->field, VIR_DOMAIN_SCHEDULER_CPU_SHARES)) {
+            if (def) {
+                unsigned long long val;
+                if (virCgroupSetCpuShares(priv->cgroup, value_ul) < 0)
+                    goto endjob;
+
+                if (virCgroupGetCpuShares(priv->cgroup, &val) < 0)
+                    goto endjob;
+
+                def->cputune.shares = val;
+                def->cputune.sharesSpecified = true;
+
+                if (virTypedParamsAddULLong(&eventParams, &eventNparams,
+                                            &eventMaxNparams,
+                                            VIR_DOMAIN_TUNABLE_CPU_CPU_SHARES,
+                                            val) < 0)
+                    goto endjob;
+            }
+
+            if (persistentDef) {
+                persistentDefCopy->cputune.shares = value_ul;
+                persistentDefCopy->cputune.sharesSpecified = true;
+            }
+<snip>
+}
+```
+
+```c
+int
+virCgroupSetCpuShares(virCgroupPtr group, unsigned long long shares)
+{
+    return virCgroupSetValueU64(group,
+                                VIR_CGROUP_CONTROLLER_CPU,
+                                "cpu.shares", shares);
+}
+```
+
+lauching qemu
+
+- qemuProcessLaunch() @src/qemu/qemu\_process.c
+=> qemuSetupCgroup() @src/qemu/qemu\_cgroup.c
+=> qemuSetupCpuCgroup() @src/qemu/qemu\_cgroup.c
+
+- qemuSetupCpuCgroup() @src/qemu/qemu\_cgroup.c
+
+```c
+static int
+qemuSetupCpuCgroup(virQEMUDriverPtr driver,
+                   virDomainObjPtr vm)
+{
+<snip>
+    if (vm->def->cputune.sharesSpecified) {
+        unsigned long long val;
+        if (virCgroupSetCpuShares(priv->cgroup, vm->def->cputune.shares) < 0)
+            return -1;
+
+        if (virCgroupGetCpuShares(priv->cgroup, &val) < 0)
+            return -1;
+        if (vm->def->cputune.shares != val) {
+            vm->def->cputune.shares = val;
+            if (virTypedParamsAddULLong(&eventParams, &eventNparams,
+                                        &eventMaxparams,
+                                        VIR_DOMAIN_TUNABLE_CPU_CPU_SHARES,
+                                        val) < 0)
+                return -1;
+
+            event = virDomainEventTunableNewFromObj(vm, eventParams, eventNparams);
+        }
+
+        qemuDomainEventQueue(driver, event);
+    }
+
+    return 0;
+}
+```
+
+</div>
+</details>
+
 ## Disk I/O QoS
 
 ### Without QoS
