@@ -463,6 +463,113 @@ Qemu options: <iotune> elements are translated into throttling.bps-read and thro
 
 See also: [I/O scheduling, iotune and difference between read_bytes_sec and read_bytes_sec_max in qemu/kvm](https://access.redhat.com/solutions/3153531)
 
+### Code Reading
+
+<details>
+<summary>
+Nova side - \<iotune\> element is generated from LibvirtConfigGuestDisk.
+</summary>
+<div>
+
+- LibvirtConfigGuestDisk.format\_dom() @nova/virt/libvirt/config.py
+
+```python
+class LibvirtConfigGuestDisk(LibvirtConfigGuestDevice):
+<snip>
+    def format_dom(self):
+        iotune = etree.Element("iotune")
+
+        if self.disk_read_bytes_sec is not None:
+            iotune.append(self._text_node("read_bytes_sec",
+                self.disk_read_bytes_sec))
+
+        if self.disk_read_iops_sec is not None:
+            iotune.append(self._text_node("read_iops_sec",
+                self.disk_read_iops_sec))
+
+        if self.disk_write_bytes_sec is not None:
+            iotune.append(self._text_node("write_bytes_sec",
+                self.disk_write_bytes_sec))
+
+        if self.disk_write_iops_sec is not None:
+            iotune.append(self._text_node("write_iops_sec",
+                self.disk_write_iops_sec))
+
+        if self.disk_total_bytes_sec is not None:
+            iotune.append(self._text_node("total_bytes_sec",
+                self.disk_total_bytes_sec))
+
+        if self.disk_total_iops_sec is not None:
+            iotune.append(self._text_node("total_iops_sec",
+                self.disk_total_iops_sec))
+
+        if len(iotune) > 0:
+            dev.append(iotune)
+```
+
+</div>
+</details>
+
+<details>
+<summary>
+Libvirt side
+</summary>
+<div>
+
+- qemuBuildDriveStr() @libvirt-3.2.0/src/qemu/qemu_command.c
+
+```c
+char *
+qemuBuildDriveStr(virDomainDiskDefPtr disk,
+                  virQEMUDriverConfigPtr cfg,
+                  bool bootable,
+                  virQEMUCapsPtr qemuCaps)
+{
+<snip>
+    if (qemuCheckDiskConfigBlkdeviotune(disk, qemuCaps) < 0)
+        goto error;
+
+#define IOTUNE_ADD(_field, _label)                                             \
+    if (disk->blkdeviotune._field) {                                           \
+        virBufferAsprintf(&opt, ",throttling." _label "=%llu",                 \
+                           disk->blkdeviotune._field);                         \
+    }
+
+    IOTUNE_ADD(total_bytes_sec, "bps-total");
+    IOTUNE_ADD(read_bytes_sec, "bps-read");
+    IOTUNE_ADD(write_bytes_sec, "bps-write");
+    IOTUNE_ADD(total_iops_sec, "iops-total");
+    IOTUNE_ADD(read_iops_sec, "iops-read");
+    IOTUNE_ADD(write_iops_sec, "iops-write");
+
+    IOTUNE_ADD(total_bytes_sec_max, "bps-total-max");
+    IOTUNE_ADD(read_bytes_sec_max, "bps-read-max");
+    IOTUNE_ADD(write_bytes_sec_max, "bps-write-max");
+    IOTUNE_ADD(total_iops_sec_max, "iops-total-max");
+    IOTUNE_ADD(read_iops_sec_max, "iops-read-max");
+    IOTUNE_ADD(write_iops_sec_max, "iops-write-max");
+
+    IOTUNE_ADD(size_iops_sec, "iops-size");
+    if (disk->blkdeviotune.group_name) {
+        virBufferEscapeString(&opt, ",throttling.group=%s",
+                              disk->blkdeviotune.group_name);
+    }
+
+    IOTUNE_ADD(total_bytes_sec_max_length, "bps-total-max-length");
+    IOTUNE_ADD(read_bytes_sec_max_length, "bps-read-max-length");
+    IOTUNE_ADD(write_bytes_sec_max_length, "bps-write-max-length");
+    IOTUNE_ADD(total_iops_sec_max_length, "iops-total-max-length");
+    IOTUNE_ADD(read_iops_sec_max_length, "iops-read-max-length");
+    IOTUNE_ADD(write_iops_sec_max_length, "iops-write-max-length");
+
+#undef IOTUNE_ADD
+<snip>
+}
+```
+
+</div>
+</details>
+
 ## Network QoS
 
 ### Without QoS
@@ -590,6 +697,123 @@ class htb 1:1 root leaf 2: prio 0 rate 262144Kbit ceil 524288Kbit burst 128Mb cb
 filter parent 1: protocol all pref 1 fw
 filter parent 1: protocol all pref 1 fw handle 0x1 classid :1
 ```
+
+### Code Reading
+
+<details>
+<summary>
+Nova side
+</summary>
+<div>
+
+- class LibvirtConfigGuestInterface @nova/virt/libvirt/config.py
+
+```python
+        if self.vif_inbound_average or self.vif_outbound_average:
+            bandwidth = etree.Element("bandwidth")
+            if self.vif_inbound_average is not None:
+                vif_inbound = etree.Element("inbound",
+                average=str(self.vif_inbound_average))
+                if self.vif_inbound_peak is not None:
+                    vif_inbound.set("peak", str(self.vif_inbound_peak))
+                if self.vif_inbound_burst is not None:
+                    vif_inbound.set("burst", str(self.vif_inbound_burst))
+                bandwidth.append(vif_inbound)
+
+            if self.vif_outbound_average is not None:
+                vif_outbound = etree.Element("outbound",
+                average=str(self.vif_outbound_average))
+                if self.vif_outbound_peak is not None:
+                    vif_outbound.set("peak", str(self.vif_outbound_peak))
+                if self.vif_outbound_burst is not None:
+                    vif_outbound.set("burst", str(self.vif_outbound_burst))
+                bandwidth.append(vif_outbound)
+            dev.append(bandwidth)
+```
+
+</div>
+</details>
+
+<details>
+<summary>
+Libvirt side
+</summary>
+<div>
+
+- qemuDomainSetInterfaceParameters() @libvirt-3.2.0/src/qemu/qemu_driver.c
+
+```c
+static int
+qemuDomainSetInterfaceParameters(virDomainPtr dom,
+                                 const char *device,
+                                 virTypedParameterPtr params,
+                                 int nparams,
+                                 unsigned int flags)
+{
+<snip>
+    if (def &&
+        !(net = virDomainNetFind(vm->def, device))) {
+        virReportError(VIR_ERR_INVALID_ARG,
+                       _("Can't find device %s"), device);
+        goto endjob;
+    }
+<snip>
+    /* average or floor are mandatory, peak and burst are optional.
+     * So if no average or floor is given, we free inbound/outbound
+     * here which causes inbound/outbound to not be set. */
+    if (!bandwidth->in->average && !bandwidth->in->floor)
+        VIR_FREE(bandwidth->in);
+    if (!bandwidth->out->average)
+        VIR_FREE(bandwidth->out);
+
+    if (net) {
+        if (VIR_ALLOC(newBandwidth) < 0)
+            goto endjob;
+<snip>
+        if (virNetDevBandwidthSet(net->ifname, newBandwidth, false) < 0 ||
+            networkBandwidthUpdate(net, newBandwidth) < 0) {
+            ignore_value(virNetDevBandwidthSet(net->ifname,
+                                               net->bandwidth,
+                                               false));
+            goto endjob;
+        }
+<snip>
+    }
+<snip>
+}
+```
+
+- virNetDevBandwidthSet() @libvirt-3.2.0/src/util/virnetdevbandwidth.c
+
+```c
+int
+virNetDevBandwidthSet(const char *ifname,
+                      virNetDevBandwidthPtr bandwidth,
+                      bool hierarchical_class)
+{
+<snip>
+        cmd = virCommandNew(TC);
+        virCommandAddArgList(cmd, "qdisc", "add", "dev", ifname, "root",
+                             "handle", "1:", "htb", "default",
+                             hierarchical_class ? "2" : "1", NULL);
+        if (virCommandRun(cmd, NULL) < 0)
+            goto cleanup;
+<snip>
+}
+```
+
+- m4/virt-external-programs.m4
+
+```m4
+AC_DEFUN([LIBVIRT_CHECK_EXTERNAL_PROGRAMS], [
+<snip>
+  AC_PATH_PROG([TC], [tc], [tc], [$LIBVIRT_SBIN_PATH])
+<snip>
+])
+```
+
+</div>
+</details>
 
 # Neutron QoS
 
