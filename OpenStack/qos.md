@@ -1,5 +1,31 @@
 # QoS implementation - Nova vs Neutron vs Cinder
 
+## Summary
+
+- Nova QoS (CPU)
+
+nova => cgroups
+
+- Nova QoS (Network)
+
+nova => libvirt => tc
+
+- Nova QoS (Disk)
+
+nova => libvit => qemu throttle
+
+- Neutron QoS (Bandwidth)
+
+neutron => ovs => tc
+
+- Neutron QoS (DSCP marking)
+
+neutron => ovs
+
+- Cinder QoS
+
+cinder => nova => libvirt => qemu throttle
+
 # Nova QoS
 
 ## Flavor
