@@ -2,14 +2,15 @@
 
 ## Summary
 
-| Componnt | QoS Resource | Implementation |
+| Component | QoS Resource | Implementation |
 |:---------|:---------|:---------------|
 | Nova | CPU | nova => cgroups |
 | Nova | Disk | nova => libvirt => qemu throttle |
 | Nova | Network | nova => libvirt => tc |
 | Neutron | Bandwidth | neutron => ovsdb => ovs => tc |
 | Neutron | DSCP marking | neutron => ovs => flow entry |
-| Cinder | Disk | cinder => nova => libvirt => qemu throttle |
+| Cinder | Disk | consumer='front-end': cinder => nova => libvirt => qemu throttle |
+| Cinder | Disk | consumer='back-end': cinder => cinder driver (backend specific qos) |
 
 # Preparation
 
