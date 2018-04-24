@@ -9,8 +9,8 @@
 | Nova | Network | nova => libvirt => tc |
 | Neutron | Bandwidth | neutron => ovsdb => ovs => tc |
 | Neutron | DSCP marking | neutron => ovs => flow entry |
-| Cinder | Disk | consumer='front-end': cinder => nova => libvirt => qemu throttle |
-| Cinder | Disk | consumer='back-end': cinder => cinder driver (backend specific qos) |
+| Cinder | Disk (consumer='front-end') | cinder => nova => libvirt => qemu throttle |
+| Cinder | Disk (consumer='back-end') | cinder => cinder driver (backend specific qos) |
 
 # Preparation
 
