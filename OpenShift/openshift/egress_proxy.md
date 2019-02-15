@@ -13,7 +13,7 @@
 Egress ProxyのPodを作るmanifestはこんな感じ。
 
 - egress\_proxy\_pod.yaml
-```go
+```yaml
 apiVersion: v1
 kind: Pod
 metadata:
