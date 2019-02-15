@@ -115,4 +115,5 @@ func maybeAddMacvlan(pod *kapi.Pod, netns string) error {
 ```
 
 と書かれている。
-"Find interface with the default route" とナイスなコメントがついていて、`metadata.annotation.pod.network.openshift.io/assign-macvlan: "true"` であればデフォルトゲートウェイに向いているインターフェースに対して`ip link add link <でほげ向きインターフェース> name macvlan0 type macvlan mode private`して該当namespaceに突っ込んでいる。ことがわかる。
+
+"Find interface with the default route" とナイスなコメントがついているとおり、`metadata.annotation.pod.network.openshift.io/assign-macvlan: "true"` であれば、デフォルトゲートウェイに向いているインターフェースに対して`ip link add link <でほげ向きインターフェース> name macvlan0 type macvlan mode private`みたいな感じでmacvlanを作って該当namespaceに突っ込んでいることがわかる。
