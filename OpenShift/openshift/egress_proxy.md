@@ -13,7 +13,7 @@
 Egress ProxyのPodを作るmanifestはこんな感じ。
 
 - egress\_proxy\_pod.yaml
-```
+```go
 apiVersion: v1
 kind: Pod
 metadata:
@@ -50,7 +50,7 @@ spec:
 [定義場所](https://github.com/openshift/origin/blob/release-3.11/vendor/github.com/openshift/api/network/v1/constants.go#L5)
 
 - vendor/github.com/openshift/api/network/v1/constants.go
-```
+```go
 const (
     // Pod annotations
     AssignMacvlanAnnotation = "pod.network.openshift.io/assign-macvlan"
@@ -59,12 +59,13 @@ const (
 
 次は`AssignMacvlanAnnotation`で検索。使っているのは`pkg/network/node/pod.go`の`maybeAddMacvlan()`だけ。
 
-[annotationを読み出すところ](https://github.com/openshift/origin/blob/release-3.11/pkg/network/node/pod.go#L348)
-[macvlanを作るところ](https://github.com/openshift/origin/blob/release-3.11/pkg/network/node/pod.go#L399-L406)
+- [annotationを読み出すところ](https://github.com/openshift/origin/blob/release-3.11/pkg/network/node/pod.go#L348)
+- [macvlanを作るところ](https://github.com/openshift/origin/blob/release-3.11/pkg/network/node/pod.go#L399-L406)
 
 
+以下抜粋。
 - pkg/network/node/pod.go
-```
+```go
 // Adds a macvlan interface to a container, if requested, for use with the egress router feature
 func maybeAddMacvlan(pod *kapi.Pod, netns string) error {
     annotation, ok := pod.Annotations[networkapi.AssignMacvlanAnnotation]
