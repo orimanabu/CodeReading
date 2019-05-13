@@ -1,4 +1,21 @@
-# xxx
+# 動機
+
+Proxy設定をした環境でコンテナをビルドすると、コンテナイメージにProxy関連の環境変数設定が埋め込まれてしまい、このコンテナイメージを別の環境に持っていくとうまく動かない、らしい。
+
+この動きの詳細を調査するためソースコードを追いかけた記録がこの文書です。
+
+コンテナイメージに埋め込まれるProxy設定は `/etc/origin/master/master-config.yaml` の `admissionConfig.pluginConfig.BuildDefaults.configuration.env` 等の情報。
+
+調査対象はgithubのoriginのrelease-3.11タグの先端 (commit id: 11bbf5df956be2a16a9c303427aac2055a6aa608)。
+
+# 結論
+
+- `/etc/origin/master/master-config.yaml` の `admissionConfig.pluginConfig.BuildDefaults.configuration.env` 等の環境変数設定は、build PodのPod Specにmergesされる ([BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L148))
+- mergeされた環境変数は、build Pod起動時にInit Containerとして起動される openshift-manage-dockerfile コマンドにより、FROM命令の直後に注入される ([insertEnvAfterFrom() @pkg/build/builder/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/docker.go#L475-L481))
+
+がっつりハードコードされていて、簡単には直せなさそうに見えました。
+
+# 準備
 
 ## Controller Managerの起動
 
