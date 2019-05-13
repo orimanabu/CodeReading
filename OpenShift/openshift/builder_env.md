@@ -11,7 +11,7 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 ## (注)
 
 - `XXX HERE` というコメントは、関数コール、注目したいところ、等の目印として私が記入したものです。
-- RFEでました: [Bug 1708511 - \[RFE\] admissionConfig.pluginConfig.BuildDefaults should not embed ENV value to keep portability](https://bugzilla.redhat.com/show_bug.cgi?id=1708511)
+- 関連Bugzilla: [Bug 1708511 - \[RFE\] admissionConfig.pluginConfig.BuildDefaults should not embed ENV value to keep portability](https://bugzilla.redhat.com/show_bug.cgi?id=1708511)
 
 
 # 結論
@@ -133,6 +133,10 @@ main() @cmd/openshift/openshift.go
 - ConvertMasterConfigToOpenshiftControllerConfig() でmaster-config.yamlのBuildDefaultsを読み込む。
 
 ### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 詳細
+
+<details><summary>
+詳細
+</summary><div>
 
 - main() @cmd/openshift/openshift.go
 
@@ -530,6 +534,8 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 ```
 
 最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は `OpenShiftControllerConfig` structに `OpenShiftControllerConfig.Build.BuildDefaults` として格納される。
+</div>
+</details>
 
 # build Podの起動
 
@@ -576,6 +582,10 @@ Master.start()の後、RunOpenShiftControllerManager()に入る。
 という流れになる。
 
 ## build Podの起動直前まで
+
+<details><summary>
+詳細
+</summary><div>
 
 まずは `Master.Start() @pkg/cmd/server/start/start_master.go` を再掲。
 
@@ -1121,8 +1131,14 @@ func (bc *BuildController) createPodSpec(build *buildv1.Build) (*corev1.Pod, err
     return podSpec, nil
 }
 ```
+</div>
+</details>
 
 ## build PodのPod Specの作成
+
+<details><summary>
+詳細
+</summary><div>
 
 - buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go
 
@@ -1361,8 +1377,14 @@ func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod
 ```
 
 DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `openshift-manage-dockerfile` コマンドを実行している。
+</div>
+</details>
 
-## BuildDefaultの環境変数の注入
+## BuildDefaultで設定したの環境変数の注入
+
+<details><summary>
+詳細
+</summary><div>
 
 - BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
 
@@ -1449,11 +1471,15 @@ func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
     *oldEnv = env
 }
 ```
+</div>
+</details>
 
 ## openshift-manage-dockerfileコマンド
 
 DockerビルドおよびS2Iビルドにおいて、build Pod起動時、Init Container内で `openshift-manage-dockerfile` コマンドを起動する。
+<details><summary>
 以下、その処理を見る。
+</summary><div>
 
 ```
 main() @cmd/oc/oc.go
@@ -1748,3 +1774,5 @@ func insertEnvAfterFrom(node *parser.Node, env []corev1.EnvVar) error {
     return nil
 }
 ```
+</div>
+</details>
