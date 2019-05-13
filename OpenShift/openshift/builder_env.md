@@ -129,7 +129,7 @@ main() @cmd/openshift/openshift.go
 
 ## `--config` オプションの引数取得
 
-NewCommandStartMasterControllers() で `--config` オプションの引数を解析する。
+`NewCommandStartMasterControllers()` で `--config` オプションの引数を解析する。
 
 <details><summary>
 詳細はこちら:
@@ -337,7 +337,7 @@ func NewCommandStartMasterControllers(name, basename string, out, errout io.Writ
 }
 ```
 
-`MasterOptions.configFile` に `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
+`[MasterOptions](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44)` structの `configFile` フィールドに `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
 </div>
 </details>
 
@@ -541,7 +541,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 }
 ```
 
-最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は `OpenShiftControllerConfig` structに `OpenShiftControllerConfig.Build.BuildDefaults` として格納される。
+最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は、`OpenShiftControllerConfig` structの `Build.BuildDefaults` フィールドに格納される。
 </div>
 </details>
 
@@ -581,12 +581,12 @@ main() @cmd/openshift/openshift.go
                                           └SetBuildEnv() @pkg/build/util/util.go
 ```
 
-Controller Managerが起動してからMaster.start()までは master-config.yamlの読み込み と同じ。
+Controller Managerが起動してからMaster.start()までは [master-config.yamlの設定をロードする](#master-configyaml%E3%81%AE%E8%A8%AD%E5%AE%9A%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89%E3%81%99%E3%82%8B) と同じ。
 Master.start()の後、RunOpenShiftControllerManager()に入る。
 
-最終的に `BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go` において、
-- `buildPodCreationStrategy.CreateBuildPod() @pkg/build/controller/build/defaults/defaults.go` でbuild PodのPod Specを作り、
-- `BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go` でmaster-config.yamlに設定された環境変数を突っ込む
+最終的に `BuildController.createPodSpec()` において、
+- `buildPodCreationStrategy.CreateBuildPod()` でbuild PodのPod Specを作り、
+- `BuildDefaults.ApplyDefaults()` でmaster-config.yamlに設定された環境変数を突っ込む
 という流れになる。
 
 以下、
@@ -683,8 +683,6 @@ func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, 
 
 - NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go
 
-`ControllerContext.OpenshiftControllerConfig.Build.BuildDefaults` でBuildDefaultsにアクセスできる。
-
 ```go
 func NewControllerContext(
     config configapi.OpenshiftControllerConfig,
@@ -723,6 +721,8 @@ func NewControllerContext(
     return openshiftControllerContext, nil
 }
 ```
+
+`ControllerContext` structの `OpenshiftControllerConfig.Build.BuildDefaults` フィールドからBuildDefaultsにアクセスできる。
 
 - startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
 
@@ -899,7 +899,7 @@ func NewBuildController(params *BuildControllerParams) *BuildController {
 }
 ```
 
-`BuildController.buildDefaults.Config.Env` 
+`BuildController` structの `buildDefaults.Config.Env` フィールドが `admissionConfig.pluginConfig.BuildDefaults.configuration.env` に相当する。
 
 - BuildController.Run() @pkg/build/controller/build/build_controller.go
 
