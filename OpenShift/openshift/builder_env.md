@@ -410,7 +410,9 @@ func (o MasterOptions) RunMaster() error {
 }
 ```
 
-master-config.yamlを読んで、`MasterConfig` structに入れて、`Master` structを作る。
+`ReadAndResolveMasterConfig()` でmaster-config.yamlを読んで [`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L305) structを返す。
+
+[`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44) structに入れて、[`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) structを作る。
 
 - Master.Start() @pkg/cmd/server/start/start_master.go
 
@@ -448,7 +450,7 @@ func (m *Master) Start() error {
 }
 ```
 
-`MasterConfig` structから `OpenshiftControllerConfig` structを作る。
+[`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) 構造体の `config` フィールド ([`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L305) 構造体) から [`OpenshiftControllerConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L1507) 構造体を作る。
 
 - ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
 
@@ -541,7 +543,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 }
 ```
 
-最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は、`OpenShiftControllerConfig` structの `Build.BuildDefaults` フィールドに格納される。
+最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は、[`OpenShiftControllerConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L1507) structの `Build.BuildDefaults` フィールドに格納される。
 </div>
 </details>
 
@@ -581,8 +583,8 @@ main() @cmd/openshift/openshift.go
                                           └SetBuildEnv() @pkg/build/util/util.go
 ```
 
-Controller Managerが起動してからMaster.start()までは [master-config.yamlの設定をロードする](#master-configyaml%E3%81%AE%E8%A8%AD%E5%AE%9A%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89%E3%81%99%E3%82%8B) と同じ。
-Master.start()の後、RunOpenShiftControllerManager()に入る。
+Controller Managerが起動してから `Master.start()` までは [master-config.yamlの設定をロードする](#master-configyaml%E3%81%AE%E8%A8%AD%E5%AE%9A%E3%82%92%E3%83%AD%E3%83%BC%E3%83%89%E3%81%99%E3%82%8B) と同じ。
+`Master.start()` の後、`RunOpenShiftControllerManager()`に入る。
 
 最終的に `BuildController.createPodSpec()` において、
 - `buildPodCreationStrategy.CreateBuildPod()` でbuild PodのPod Specを作り、
@@ -722,7 +724,7 @@ func NewControllerContext(
 }
 ```
 
-`ControllerContext` structの `OpenshiftControllerConfig.Build.BuildDefaults` フィールドからBuildDefaultsにアクセスできる。
+[`ControllerContext`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller/interfaces.go#L157) structの `OpenshiftControllerConfig.Build.BuildDefaults` フィールドからBuildDefaultsにアクセスできる。
 
 - startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
 
@@ -899,7 +901,7 @@ func NewBuildController(params *BuildControllerParams) *BuildController {
 }
 ```
 
-`BuildController` structの `buildDefaults.Config.Env` フィールドが `admissionConfig.pluginConfig.BuildDefaults.configuration.env` に相当する。
+[`BuildController`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L121) structの `buildDefaults.Config.Env` フィールドが `admissionConfig.pluginConfig.BuildDefaults.configuration.env` に相当する。
 
 - BuildController.Run() @pkg/build/controller/build/build_controller.go
 
