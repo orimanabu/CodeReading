@@ -253,10 +253,10 @@ func NewCommandStartMaster(basename string, out, errout io.Writer) (*cobra.Comma
 
 <snip>
 
-	startControllers, _ := NewCommandStartMasterControllers("controllers", basename, out, errout) // XXX HERE
-	startAPI, _ := NewCommandStartMasterAPI("api", basename, out, errout)
-	cmd.AddCommand(startAPI)
-	cmd.AddCommand(startControllers)
+    startControllers, _ := NewCommandStartMasterControllers("controllers", basename, out, errout) // XXX HERE
+    startAPI, _ := NewCommandStartMasterAPI("api", basename, out, errout)
+    cmd.AddCommand(startAPI)
+    cmd.AddCommand(startControllers)
 
     return cmd, options
 }
@@ -499,83 +499,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 
 # その後
 
-- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
-
-```go
-// RunAPIServer takes the options and starts the etcd server
-func (o *OpenShiftControllerManager) RunControllerManager() error {
-	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
-	if err != nil {
-		return err
-	}
-
-	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
-	if len(validationResults.Warnings) != 0 {
-		for _, warning := range validationResults.Warnings {
-			glog.Warningf("%v", warning)
-		}
-	}
-	if len(validationResults.Errors) != 0 {
-		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
-	}
-
-	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
-	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
-	if err != nil {
-		return err
-	}
-
-	return RunOpenShiftControllerManager(config, clientConfig)
-}
-```
-
-- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
-
-```go
-// RunAPIServer takes the options and starts the etcd server
-func (o *OpenShiftControllerManager) RunControllerManager() error {
-	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
-	if err != nil {
-		return err
-	}
-
-	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
-	if len(validationResults.Warnings) != 0 {
-		for _, warning := range validationResults.Warnings {
-			glog.Warningf("%v", warning)
-		}
-	}
-	if len(validationResults.Errors) != 0 {
-		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
-	}
-
-	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
-	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
-	if err != nil {
-		return err
-	}
-
-	return RunOpenShiftControllerManager(config, clientConfig)
-}
-```
-
-# xxx
-
-- transitionToPhase() @pkg/build/controller/build/build_controller.go
-o
-```go
-// transitionToPhase returns a buildUpdate object to transition a build to a new
-// phase with the given reason and message
-func transitionToPhase(phase buildv1.BuildPhase, reason buildv1.StatusReason, message string) *buildUpdate {
-    update := &buildUpdate{}
-    update.setPhase(phase)
-    update.setReason(reason)
-    update.setMessage(message)
-    return update
-}
-```
-
-# その後
+Dockerビルドでbuildコンテナが起動するところまでを見る。
 
 ```
 main() @cmd/openshift/openshift.go
@@ -586,11 +510,12 @@ main() @cmd/openshift/openshift.go
         └MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
           └MasterOptions.RunMaster() @pkg/cmd/server/start/start_master.go
             └Master.Start() @pkg/cmd/server/start/start_master.go
-
               └RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
+                ├NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go
                 └startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
                   └ControllerInitializers @pkg/cmd/openshift-controller-manager/controller/config.go
                     └RunBuildController() @pkg/cmd/openshift-controller-manager/controller/build.go
+                      ├NewBuildController() @pkg/build/controller/build/build_controller.go
                       └BuildController.Run() @pkg/build/controller/build/build_controller.go
                         └BuildController.buildWorker() @pkg/build/controller/build/build_controller.go
                           └BuildController.buildWork() @pkg/build/controller/build/build_controller.go
@@ -598,13 +523,23 @@ main() @cmd/openshift/openshift.go
                               └BuildController.handleNewBuild() @pkg/build/controller/build/build_controller.go
                                 └BuildController.createBuildPod() @pkg/build/controller/build/build_controller.go
                                   └BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go
+                                    ├buildPodCreationStrategy.CreateBuildPod() @pkg/build/controller/build/defaults/defaults.go
+                                    │└typeBasedFactoryStrategy.CreateBuildPod() @pkg/build/controller/build/defaults/defaults.go
+                                    │  ├DockerBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
+                                    │  └SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
                                     └BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
                                       └BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
                                         └addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
                                           └SetBuildEnv() @pkg/build/util/util.go
 ```
 
-Master.start()までは同じ。その後RunOpenShiftControllerManager()に入る。
+Controller Managerが起動してからMaster.start()までは master-config.yamlの読み込み と同じ。
+Master.start()の後、RunOpenShiftControllerManager()に入る。
+
+最終的に `BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go` において、
+- `buildPodCreationStrategy.CreateBuildPod() @pkg/build/controller/build/defaults/defaults.go` でbuild PodのPod Specを作り、
+- `BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go` でmaster-config.yamlに設定された環境変数を突っ込む
+という流れになる。
 
 まずは `Master.Start() @pkg/cmd/server/start/start_master.go` を再掲。
 
@@ -684,6 +619,49 @@ func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, 
 	})
 
 	return nil
+```
+
+- NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go
+
+`ControllerContext.OpenshiftControllerConfig.Build.BuildDefaults` でBuildDefaultsにアクセスできる。
+
+```go
+func NewControllerContext(
+	config configapi.OpenshiftControllerConfig,
+	inClientConfig *rest.Config,
+	stopCh <-chan struct{},
+) (*ControllerContext, error) {
+
+
+<snip>
+
+	openshiftControllerContext := &ControllerContext{
+		OpenshiftControllerConfig: config,
+
+		ClientBuilder: OpenshiftControllerClientBuilder{
+			ControllerClientBuilder: controller.SAControllerClientBuilder{
+				ClientConfig:         rest.AnonymousClientConfig(clientConfig),
+				CoreClient:           kubeClient.CoreV1(),
+				AuthenticationClient: kubeClient.AuthenticationV1(),
+				Namespace:            bootstrappolicy.DefaultOpenShiftInfraNamespace,
+			},
+		},
+		KubernetesInformers:       kexternalinformers.NewSharedInformerFactory(kubeClient, defaultInformerResyncPeriod),
+		AppsInformers:             appsinformer.NewSharedInformerFactory(appsClient, defaultInformerResyncPeriod),
+		BuildInformers:            buildinformer.NewSharedInformerFactory(buildClient, defaultInformerResyncPeriod),
+		ImageInformers:            imageinformer.NewSharedInformerFactory(imageClient, defaultInformerResyncPeriod),
+		NetworkInformers:          networkinformer.NewSharedInformerFactory(networkClient, defaultInformerResyncPeriod),
+		InternalQuotaInformers:    quotainformer.NewSharedInformerFactory(quotaClient, defaultInformerResyncPeriod),
+		InternalRouteInformers:    routeinformer.NewSharedInformerFactory(routerClient, defaultInformerResyncPeriod),
+		InternalTemplateInformers: templateinformer.NewSharedInformerFactory(templateClient, defaultInformerResyncPeriod),
+		Stop:             stopCh,
+		InformersStarted: make(chan struct{}),
+		RestMapper:       dynamicRestMapper,
+	}
+	openshiftControllerContext.GenericResourceInformer = openshiftControllerContext.ToGenericInformer()
+
+	return openshiftControllerContext, nil
+}
 ```
 
 - startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
@@ -797,6 +775,71 @@ func RunBuildController(ctx *ControllerContext) (bool, error) {
     return true, nil
 }
 ```
+
+- NewBuildController() @pkg/build/controller/build/build_controller.go
+
+```go
+// NewBuildController creates a new BuildController.
+func NewBuildController(params *BuildControllerParams) *BuildController {
+	eventBroadcaster := record.NewBroadcaster()
+	eventBroadcaster.StartRecordingToSink(&ktypedclient.EventSinkImpl{Interface: params.KubeClient.CoreV1().Events("")})
+
+	buildClient := buildmanualclient.NewClientBuildClient(params.BuildClient)
+	buildLister := params.BuildInformer.Lister()
+	buildConfigGetter := params.BuildConfigInformer.Lister()
+	c := &BuildController{
+		buildPatcher:      buildClient,
+		buildLister:       buildLister,
+		buildConfigGetter: buildConfigGetter,
+		buildDeleter:      buildClient,
+		secretStore:       params.SecretInformer.Lister(),
+		podClient:         params.KubeClient.CoreV1(),
+		kubeClient:        params.KubeClient,
+		podInformer:       params.PodInformer.Informer(),
+		podStore:          params.PodInformer.Lister(),
+		buildInformer:     params.BuildInformer.Informer(),
+		buildStore:        params.BuildInformer.Lister(),
+		imageStreamStore:  params.ImageStreamInformer.Lister(),
+		createStrategy: &typeBasedFactoryStrategy{
+			dockerBuildStrategy: params.DockerBuildStrategy,
+			sourceBuildStrategy: params.SourceBuildStrategy,
+			customBuildStrategy: params.CustomBuildStrategy,
+		},
+		buildDefaults:  params.BuildDefaults,
+		buildOverrides: params.BuildOverrides,
+
+		buildQueue:       workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+		imageStreamQueue: newResourceTriggerQueue(),
+		buildConfigQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+
+		recorder:    eventBroadcaster.NewRecorder(buildscheme.EncoderScheme, corev1.EventSource{Component: "build-controller"}),
+		runPolicies: policy.GetAllRunPolicies(buildLister, buildClient),
+	}
+
+	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		UpdateFunc: c.podUpdated,
+		DeleteFunc: c.podDeleted,
+	})
+	c.buildInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.buildAdded,
+		UpdateFunc: c.buildUpdated,
+		DeleteFunc: c.buildDeleted,
+	})
+	params.ImageStreamInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+		AddFunc:    c.imageStreamAdded,
+		UpdateFunc: c.imageStreamUpdated,
+	})
+
+	c.buildStoreSynced = c.buildInformer.HasSynced
+	c.podStoreSynced = c.podInformer.HasSynced
+	c.secretStoreSynced = params.SecretInformer.Informer().HasSynced
+	c.imageStreamStoreSynced = params.ImageStreamInformer.Informer().HasSynced
+
+	return c
+}
+```
+
+`BuildController.buildDefaults.Config.Env` 
 
 - BuildController.Run() @pkg/build/controller/build/build_controller.go
 
@@ -1126,5 +1169,541 @@ func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
         return
     }
     *oldEnv = env
+}
+```
+
+## xxx
+
+- 
+
+```go
+
+```
+
+- buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go
+
+```go
+// buildPodCreationStrategy is used by the build controller to
+// create a build pod based on a build strategy
+type buildPodCreationStrategy interface {
+	CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) // XXX HERE
+}
+```
+
+- typeBasedFactoryStrategy @pkg/build/controller/build/podcreationstrategy.go
+
+```go
+type typeBasedFactoryStrategy struct {
+	dockerBuildStrategy buildPodCreationStrategy // XXX HERE
+	sourceBuildStrategy buildPodCreationStrategy // XXX HERE
+	customBuildStrategy buildPodCreationStrategy
+}
+```
+
+- typeBasedFactoryStrategy.CreateBuildPod() @pkg/build/controller/build/podcreationstrategy.go
+
+```go
+func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) {
+	var pod *corev1.Pod
+	var err error
+	switch {
+	case build.Spec.Strategy.DockerStrategy != nil:
+		pod, err = f.dockerBuildStrategy.CreateBuildPod(build) // XXX HERE
+	case build.Spec.Strategy.SourceStrategy != nil:
+		pod, err = f.sourceBuildStrategy.CreateBuildPod(build) // XXX HERE
+	case build.Spec.Strategy.CustomStrategy != nil:
+		pod, err = f.customBuildStrategy.CreateBuildPod(build)
+	case build.Spec.Strategy.JenkinsPipelineStrategy != nil:
+		return nil, fmt.Errorf("creating a build pod for Build %s/%s with the JenkinsPipeline strategy is not supported", build.Namespace, build.Name)
+	default:
+		return nil, fmt.Errorf("no supported build strategy defined for Build %s/%s", build.Namespace, build.Name)
+	}
+
+	if pod != nil {
+		if pod.Annotations == nil {
+			pod.Annotations = map[string]string{}
+		}
+		pod.Annotations[buildutil.BuildAnnotation] = build.Name
+	}
+	return pod, err
+}
+```
+
+- DockerBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
+
+```go
+// CreateBuildPod creates the pod to be used for the Docker build
+// TODO: Make the Pod definition configurable
+func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, error) {
+	data, err := runtime.Encode(buildJSONCodec, build)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode the build: %v", err)
+	}
+
+<snip>
+
+	pod := &v1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      buildapihelpers.GetBuildPodName(build),
+			Namespace: build.Namespace,
+			Labels:    getPodLabels(build),
+		},
+		Spec: v1.PodSpec{
+			ServiceAccountName: serviceAccount,
+			Containers: []v1.Container{
+				{
+					Name:    DockerBuild,
+					Image:   bs.Image,
+					Command: []string{"openshift-docker-build"}, // XXX HERE
+					Env:     copyEnvVarSlice(containerEnv),
+					// TODO: run unprivileged https://github.com/openshift/origin/issues/662
+					SecurityContext: &v1.SecurityContext{
+						Privileged: &privileged,
+					},
+					TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+					VolumeMounts: []v1.VolumeMount{
+						{
+							Name:      "buildworkdir",
+							MountPath: buildutil.BuildWorkDirMount,
+						},
+					},
+					ImagePullPolicy: v1.PullIfNotPresent,
+					Resources:       build.Spec.Resources,
+				},
+			},
+			Volumes: []v1.Volume{
+				{
+					Name: "buildworkdir",
+					VolumeSource: v1.VolumeSource{
+						EmptyDir: &v1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			RestartPolicy: v1.RestartPolicyNever,
+			NodeSelector:  build.Spec.NodeSelector,
+		},
+	}
+
+<snip>
+
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers,
+		v1.Container{
+			Name:    "manage-dockerfile",
+			Image:   bs.Image,
+			Command: []string{"openshift-manage-dockerfile"}, // XXX HERE
+			Env:     copyEnvVarSlice(containerEnv),
+			TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+			VolumeMounts: []v1.VolumeMount{
+				{
+					Name:      "buildworkdir",
+					MountPath: buildutil.BuildWorkDirMount,
+				},
+			},
+			ImagePullPolicy: v1.PullIfNotPresent,
+			Resources:       build.Spec.Resources,
+		},
+	)
+
+<snip>
+
+	setOwnerReference(pod, build)
+	setupDockerSocket(pod)
+	setupCrioSocket(pod)
+	setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
+	// For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
+	// secrets into the main container.  The main container includes logic to copy them from the mounted
+	// location into the working directory.
+	// TODO: consider moving this into the git-clone container and doing the secret copying there instead.
+	setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
+	setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
+	return pod, nil
+}
+```
+
+- SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
+
+```go
+// CreateBuildPod creates a pod that will execute the STI build
+// TODO: Make the Pod definition configurable
+func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) {
+	data, err := runtime.Encode(buildJSONCodec, build)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encode the Build %s/%s: %v", build.Namespace, build.Name, err)
+	}
+
+<snip>
+
+	privileged := true
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      buildapihelpers.GetBuildPodName(build),
+			Namespace: build.Namespace,
+			Labels:    getPodLabels(build),
+		},
+		Spec: corev1.PodSpec{
+			ServiceAccountName: serviceAccount,
+			Containers: []corev1.Container{
+				{
+					Name:    StiBuild,
+					Image:   bs.Image,
+					Command: []string{"openshift-sti-build"},
+					Env:     copyEnvVarSlice(containerEnv),
+					// TODO: run unprivileged https://github.com/openshift/origin/issues/662
+					SecurityContext: &corev1.SecurityContext{
+						Privileged: &privileged,
+					},
+					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+					VolumeMounts: []corev1.VolumeMount{
+						{
+							Name:      "buildworkdir",
+							MountPath: buildutil.BuildWorkDirMount,
+						},
+					},
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Resources:       build.Spec.Resources,
+				},
+			},
+			Volumes: []corev1.Volume{
+				{
+					Name: "buildworkdir",
+					VolumeSource: corev1.VolumeSource{
+						EmptyDir: &corev1.EmptyDirVolumeSource{},
+					},
+				},
+			},
+			RestartPolicy: corev1.RestartPolicyNever,
+			NodeSelector:  build.Spec.NodeSelector,
+		},
+	}
+
+<snip>
+
+	pod.Spec.InitContainers = append(pod.Spec.InitContainers,
+		corev1.Container{
+			Name:    "manage-dockerfile",
+			Image:   bs.Image,
+			Command: []string{"openshift-manage-dockerfile"},
+			Env:     copyEnvVarSlice(containerEnv),
+			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "buildworkdir",
+					MountPath: buildutil.BuildWorkDirMount,
+				},
+			},
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Resources:       build.Spec.Resources,
+		},
+	)
+
+<snip>
+
+	setOwnerReference(pod, build)
+	setupDockerSocket(pod)
+	setupCrioSocket(pod)
+	setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
+	// For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
+	// secrets into the main container.  The main container includes logic to copy them from the mounted
+	// location into the working directory.
+	// TODO: consider moving this into the git-clone container and doing the secret copying there instead.
+	setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
+	setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
+	return pod, nil
+}
+```
+
+## openshift-manage-dockerfileコマンド
+
+```
+main() @cmd/oc/oc.go
+└CommandFor() @pkg/oc/cli/cli.go
+  └NewCommandManageDockerfile() @pkg/cmd/infra/builder/builder.go
+    └RunManageDockerfile() @pkg/build/builder/cmd/builder.go
+      └ManageDockerfile() @@pkg/build/builder/source.go
+        └addBuildParameters() @pkg/build/builder/common.go
+          └insertEnvAfterFrom() @pkg/build/builder/docker.go
+```
+
+- main() @cmd/oc/oc.go
+
+```go
+func main() {
+	logs.InitLogs()
+	defer logs.FlushLogs()
+	defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), version.Get())()
+	defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
+
+	rand.Seed(time.Now().UTC().UnixNano())
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
+
+	// the kubectl scheme expects to have all the recognizable external types it needs to consume.  Install those here.
+	// We can't use the "normal" scheme because apply will use that to build stategic merge patches on CustomResources
+	utilruntime.Must(apps.Install(scheme.Scheme))
+	utilruntime.Must(authorization.Install(scheme.Scheme))
+	utilruntime.Must(build.Install(scheme.Scheme))
+	utilruntime.Must(image.Install(scheme.Scheme))
+	utilruntime.Must(network.Install(scheme.Scheme))
+	utilruntime.Must(oauth.Install(scheme.Scheme))
+	utilruntime.Must(operator.Install(scheme.Scheme))
+	utilruntime.Must(project.Install(scheme.Scheme))
+	utilruntime.Must(quota.Install(scheme.Scheme))
+	utilruntime.Must(route.Install(scheme.Scheme))
+	utilruntime.Must(security.Install(scheme.Scheme))
+	utilruntime.Must(template.Install(scheme.Scheme))
+	utilruntime.Must(user.Install(scheme.Scheme))
+	legacy.InstallExternalLegacyAll(scheme.Scheme)
+
+	// the legacyscheme is used in kubectl and expects to have the internal types registered.  Explicitly wire our types here.
+	// this does
+	install.InstallInternalOpenShift(legacyscheme.Scheme)
+	legacy.InstallInternalLegacyAll(scheme.Scheme)
+
+	basename := filepath.Base(os.Args[0])
+	command := cli.CommandFor(basename)
+	if err := command.Execute(); err != nil {
+		os.Exit(1)
+	}
+}
+```
+
+- CommandFor() @pkg/oc/cli/cli.go
+
+```go
+// CommandFor returns the appropriate command for this base name,
+// or the OpenShift CLI command.
+func CommandFor(basename string) *cobra.Command {
+	var cmd *cobra.Command
+
+	in, out, errout := os.Stdin, os.Stdout, os.Stderr
+
+	// Make case-insensitive and strip executable suffix if present
+	if runtime.GOOS == "windows" {
+		basename = strings.ToLower(basename)
+		basename = strings.TrimSuffix(basename, ".exe")
+	}
+
+	switch basename {
+	case "kubectl":
+		kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
+		cmd = kubecmd.NewKubectlCommand(in, out, errout)
+	case "openshift-deploy":
+		cmd = deployer.NewCommandDeployer(basename)
+	case "openshift-sti-build":
+		cmd = builder.NewCommandS2IBuilder(basename)
+	case "openshift-docker-build":
+		cmd = builder.NewCommandDockerBuilder(basename)
+	case "openshift-git-clone":
+		cmd = builder.NewCommandGitClone(basename)
+	case "openshift-manage-dockerfile":
+		cmd = builder.NewCommandManageDockerfile(basename)
+	case "openshift-extract-image-content":
+		cmd = builder.NewCommandExtractImageContent(basename)
+	case "openshift-router":
+		cmd = irouter.NewCommandTemplateRouter(basename)
+	case "openshift-f5-router":
+		cmd = irouter.NewCommandF5Router(basename)
+	case "openshift-recycle":
+		cmd = recycle.NewCommandRecycle(basename, out)
+	default:
+		kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
+		shimKubectlForOc()
+		cmd = NewCommandCLI("oc", "oc", in, out, errout)
+	}
+
+	if cmd.UsageFunc() == nil {
+		templates.ActsAsRootCommand(cmd, []string{"options"})
+	}
+	flagtypes.GLog(cmd.PersistentFlags())
+
+	return cmd
+}
+```
+
+- NewCommandManageDockerfile() @pkg/cmd/infra/builder/builder.go
+
+```go
+func NewCommandManageDockerfile(name string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: "Manage a dockerfile for a docker build",
+		Long:  manageDockerfileLong,
+		Run: func(c *cobra.Command, args []string) {
+			err := cmd.RunManageDockerfile(c.OutOrStderr())
+			kcmdutil.CheckErr(err)
+		},
+	}
+	cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
+	return cmd
+}
+
+func NewCommandExtractImageContent(name string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: "Extract build input content from existing images",
+		Long:  extractImageContentLong,
+		Run: func(c *cobra.Command, args []string) {
+			err := cmd.RunExtractImageContent(c.OutOrStderr())
+			kcmdutil.CheckErr(err)
+		},
+	}
+	cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
+	return cmd
+}
+```
+
+- RunManageDockerfile() @pkg/build/builder/cmd/builder.go
+
+```go
+// RunManageDockerfile manipulates the dockerfile for docker builds.
+// It will write the inline dockerfile to the working directory (possibly
+// overwriting an existing dockerfile) and then update the dockerfile
+// in the working directory (accounting for contextdir+dockerfilepath)
+// with new FROM image information based on the imagestream/imagetrigger
+// and also adds some env and label values to the dockerfile based on
+// the build information.
+func RunManageDockerfile(out io.Writer) error {
+	cfg, err := newBuilderConfigFromEnvironment(out, false)
+	if err != nil {
+		return err
+	}
+	return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build)
+}
+
+// RunExtractImageContent extracts files from existing images
+// into the build working directory.
+func RunExtractImageContent(out io.Writer) error {
+	cfg, err := newBuilderConfigFromEnvironment(out, true)
+	if err != nil {
+		return err
+	}
+	return cfg.extractImageContent()
+}
+```
+
+- ManageDockerfile() @@pkg/build/builder/source.go
+
+```go
+// ManageDockerfile manipulates the dockerfile for docker builds.
+// It will write the inline dockerfile to the working directory (possibly
+// overwriting an existing dockerfile) and then update the dockerfile
+// in the working directory (accounting for contextdir+dockerfilepath)
+// with new FROM image information based on the imagestream/imagetrigger
+// and also adds some env and label values to the dockerfile based on
+// the build information.
+func ManageDockerfile(dir string, build *buildapiv1.Build) error {
+	os.MkdirAll(dir, 0777)
+	glog.V(5).Infof("Checking for presence of a Dockerfile")
+	// a Dockerfile has been specified, create or overwrite into the destination
+	if dockerfileSource := build.Spec.Source.Dockerfile; dockerfileSource != nil {
+		baseDir := dir
+		if len(build.Spec.Source.ContextDir) != 0 {
+			baseDir = filepath.Join(baseDir, build.Spec.Source.ContextDir)
+		}
+		if err := ioutil.WriteFile(filepath.Join(baseDir, "Dockerfile"), []byte(*dockerfileSource), 0660); err != nil {
+			return err
+		}
+	}
+
+	// We only mutate the dockerfile if this is a docker strategy build, otherwise
+	// we leave it as it was provided.
+	if build.Spec.Strategy.DockerStrategy != nil {
+		sourceInfo, err := readSourceInfo()
+		if err != nil {
+			return fmt.Errorf("error reading git source info: %v", err)
+		}
+		return addBuildParameters(dir, build, sourceInfo)
+	}
+	return nil
+}
+```
+
+- addBuildParameters() @pkg/build/builder/common.go
+
+```go
+// addBuildParameters checks if a Image is set to replace the default base image.
+// If that's the case then change the Dockerfile to make the build with the given image.
+// Also append the environment variables and labels in the Dockerfile.
+func addBuildParameters(dir string, build *buildapiv1.Build, sourceInfo *git.SourceInfo) error {
+	dockerfilePath := getDockerfilePath(dir, build)
+
+	in, err := ioutil.ReadFile(dockerfilePath)
+	if err != nil {
+		return err
+	}
+	node, err := imagebuilder.ParseDockerfile(bytes.NewBuffer(in))
+	if err != nil {
+		return err
+	}
+
+	// Update base image if build strategy specifies the From field.
+	if build.Spec.Strategy.DockerStrategy != nil && build.Spec.Strategy.DockerStrategy.From != nil && build.Spec.Strategy.DockerStrategy.From.Kind == "DockerImage" {
+		// Reduce the name to a minimal canonical form for the daemon
+		name := build.Spec.Strategy.DockerStrategy.From.Name
+		if ref, err := imagereference.Parse(name); err == nil {
+			name = ref.DaemonMinimal().Exact()
+		}
+		err := replaceLastFrom(node, name)
+		if err != nil {
+			return err
+		}
+	}
+
+	// Append build info as environment variables.
+	if err := appendEnv(node, buildEnv(build, sourceInfo)); err != nil {
+		return err
+	}
+
+	// Append build labels.
+	if err := appendLabel(node, buildLabels(build, sourceInfo)); err != nil {
+		return err
+	}
+
+	// Insert environment variables defined in the build strategy.
+	if err := insertEnvAfterFrom(node, build.Spec.Strategy.DockerStrategy.Env); err != nil {
+		return err
+	}
+
+	replaceImagesFromSource(node, build.Spec.Source.Images)
+
+	out := dockerfile.Write(node)
+	glog.V(4).Infof("Replacing dockerfile\n%s\nwith:\n%s", string(in), string(out))
+	return overwriteFile(dockerfilePath, out)
+}
+```
+
+- insertEnvAfterFrom() @pkg/build/builder/docker.go
+
+```go
+// insertEnvAfterFrom inserts an ENV instruction with the environment variables
+// from env after every FROM instruction in node.
+func insertEnvAfterFrom(node *parser.Node, env []corev1.EnvVar) error {
+	if node == nil || len(env) == 0 {
+		return nil
+	}
+
+	// Build ENV instruction.
+	var m []dockerfile.KeyValue
+	for _, e := range env {
+		m = append(m, dockerfile.KeyValue{Key: e.Name, Value: e.Value})
+	}
+	buildEnv, err := dockerfile.Env(m)
+	if err != nil {
+		return err
+	}
+
+	// Insert the buildEnv after every FROM instruction.
+	// We iterate in reverse order, otherwise indices would have to be
+	// recomputed after each step, because we're changing node in-place.
+	indices := dockerfile.FindAll(node, dockercmd.From)
+	for i := len(indices) - 1; i >= 0; i-- {
+		err := dockerfile.InsertInstructions(node, indices[i]+1, buildEnv)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 ```
