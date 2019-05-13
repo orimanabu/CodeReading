@@ -83,15 +83,26 @@ hypershiftコマンドから起動する場合と、openshfitコマンドから�
 
 ### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 概要
 
-- main() @cmd/openshift/openshift.go
-- CommandFor() @pkg/cmd/openshift/openshift.go
-- NewCommandOpenShift() @pkg/cmd/openshift/openshift.go
-- NewCommandStart() @pkg/cmd/server/start/start.go
-- NewCommandStartMaster() @pkg/cmd/server/start/start\_master.go
-- MasterOptions.StartMaster() @pkg/cmd/server/start/start\_master.go
-- MasterOptions.RunMaster() @pkg/cmd/server/start/start\_master.go
-- Master.Start() @pkg/cmd/server/start/start_master.go
-- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
+```
+main() @cmd/openshift/openshift.go
+└CommandFor() @pkg/cmd/openshift/openshift.go
+  └NewCommandOpenShift() @pkg/cmd/openshift/openshift.go
+    └NewCommandStart() @pkg/cmd/server/start/start.go
+      └NewCommandStartMaster() @pkg/cmd/server/start/start_master.go
+        └NewCommandStartMasterControllers() @pkg/cmd/server/start/start_controllers.go
+          │  (MasterOptions.ConfigFileに--configオプションの引数を入れる)
+          └MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
+            └MasterOptions.RunMaster() @pkg/cmd/server/start/start_master.go
+              ├ReadAndResolveMasterConfig() @pkg/cmd/server/apis/config/latest/helpers.go
+              │  (master-config.yamlを読んで、MasterConfig structに入れて、Master structを構成する、)
+              └Master.Start() @pkg/cmd/server/start/start_master.go
+                └ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
+                    (MasterConfig structからOpenshiftControllerConfig structを構成する)
+```
+
+- NewCommandStartMasterControllers() で `--config`オプションの引数を解析する。
+- ReadAndResolveMasterConfig() でmaster-config.yamlを読み込む。
+- ConvertMasterConfigToOpenshiftControllerConfig() でmaster-config.yamlのBuildDefaultsを読み込む。
 
 ### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 詳細
 
@@ -220,25 +231,12 @@ func NewCommandStartMaster(basename string, out, errout io.Writer) (*cobra.Comma
         Short: "Launch a master",
         Long:  fmt.Sprintf(masterLong, basename),
         Run: func(c *cobra.Command, args []string) {
-            kcmdutil.CheckErr(options.Complete())
 
-            if options.PrintIP {
-                u, err := options.MasterArgs.GetMasterAddress()
-                if err != nil {
-                    glog.Fatal(err)
-                }
-                host, _, err := net.SplitHostPort(u.Host)
-                if err != nil {
-                    glog.Fatal(err)
-                }
-                fmt.Fprintf(out, "%s\n", host)
-                return
-            }
-            kcmdutil.CheckErr(options.Validate(args))
+<snip>
 
             origin.StartProfiler()
 
-            if err := options.StartMaster(); err != nil { // XXX HERE
+            if err := options.StartMaster(); err != nil {
                 if kerrors.IsInvalid(err) {
                     if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
                         fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
@@ -255,7 +253,58 @@ func NewCommandStartMaster(basename string, out, errout io.Writer) (*cobra.Comma
 
 <snip>
 
+	startControllers, _ := NewCommandStartMasterControllers("controllers", basename, out, errout) // XXX HERE
+	startAPI, _ := NewCommandStartMasterAPI("api", basename, out, errout)
+	cmd.AddCommand(startAPI)
+	cmd.AddCommand(startControllers)
+
     return cmd, options
+}
+```
+
+- NewCommandStartMasterControllers() @pkg/cmd/server/start/start_controllers.go
+
+```go
+// NewCommandStartMasterControllers starts only the controllers
+func NewCommandStartMasterControllers(name, basename string, out, errout io.Writer) (*cobra.Command, *MasterOptions) {
+	options := &MasterOptions{Output: out}
+	options.DefaultsFromName(basename)
+
+	cmd := &cobra.Command{
+		Use:   "controllers",
+		Short: "Launch master controllers",
+		Long:  fmt.Sprintf(controllersLong, basename, name),
+		Run: func(c *cobra.Command, args []string) {
+
+<snip>
+
+			origin.StartProfiler()
+
+			if err := options.StartMaster(); err != nil { // XXX HERE
+				if kerrors.IsInvalid(err) {
+					if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
+						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
+						for _, cause := range details.Causes {
+							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
+						}
+						os.Exit(255)
+					}
+				}
+				glog.Fatal(err)
+			}
+		},
+	}
+
+<snip>
+
+	flags := cmd.Flags()
+	// This command only supports reading from config and the listen argument
+	flags.StringVar(&options.ConfigFile, "config", "", "Location of the master configuration file to run from. Required") // XXX HERE
+	cmd.MarkFlagFilename("config", "yaml", "yml")
+	flags.StringVar(&lockServiceName, "lock-service-name", "", "Name of a service in the kube-system namespace to use as a lock, overrides config.")
+	BindListenArg(listenArg, flags, "")
+
+	return cmd, options
 }
 ```
 
@@ -288,6 +337,25 @@ func (o MasterOptions) StartMaster() error {
 // 3.  Writes the fully specified master config and exits if needed
 // 4.  Starts the master based on the fully specified config
 func (o MasterOptions) RunMaster() error {
+	startUsingConfigFile := !o.IsWriteConfigOnly() && o.IsRunFromConfig()
+
+	if !startUsingConfigFile && o.CreateCertificates {
+		glog.V(2).Infof("Generating master configuration")
+		if err := o.CreateCerts(); err != nil {
+			return err
+		}
+	}
+
+	var masterConfig *configapi.MasterConfig
+	var err error
+	if startUsingConfigFile {
+		masterConfig, err = configapilatest.ReadAndResolveMasterConfig(o.ConfigFile) // XXX HERE
+	} else {
+		masterConfig, err = o.MasterArgs.BuildSerializeableMasterConfig()
+	}
+	if err != nil {
+		return err
+	}
 
 <snip>
 
@@ -365,7 +433,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 		registryURLs = append(registryURLs, in.ImagePolicyConfig.InternalRegistryHostname)
 	}
 
-	buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig)
+	buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig) // XXX HERE
 	if err != nil {
 		// this should happen on scrubbed input
 		panic(err)
