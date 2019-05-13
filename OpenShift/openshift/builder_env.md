@@ -6,11 +6,15 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 コンテナイメージに埋め込まれるProxy設定は `/etc/origin/master/master-config.yaml` の `admissionConfig.pluginConfig.BuildDefaults.configuration.env` 等の情報。
 
-調査対象はgithubのoriginのrelease-3.11タグの先端 (commit id: 11bbf5df956be2a16a9c303427aac2055a6aa608)。
+調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df956be2a16a9c303427aac2055a6aa608](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
 
 # 結論
 
-- `/etc/origin/master/master-config.yaml` の `admissionConfig.pluginConfig.BuildDefaults.configuration.env` 等の環境変数設定は、build PodのPod Specにmergesされる ([BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L148))
+- `/etc/origin/master/master-config.yaml` の環境変数設定は、build PodのPod Specにmergesされる ([BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L148))
+
+  - `admissionConfig.pluginConfig.BuildDefaults.configuration.env` のmerge処理は[ここ](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L150-L157)
+  - `admissionConfig.pluginConfig.BuildDefaults.configuration.{gitHTTPProxy,gitHTTPSProxy,gitNoProxy}` のmerge処理は[ここ](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L182-L204)
+
 - mergeされた環境変数は、build Pod起動時にInit Containerとして起動される openshift-manage-dockerfile コマンドにより、FROM命令の直後に注入される ([insertEnvAfterFrom() @pkg/build/builder/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/docker.go#L475-L481))
 
 がっつりハードコードされていて、簡単には直せなさそうに見えました。
