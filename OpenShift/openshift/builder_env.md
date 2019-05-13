@@ -8,7 +8,11 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df956be2a16a9c303427aac2055a6aa608](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
 
-(注) `XXX HERE` というコメントは、関数コール、注目したいところ、等の目印として私が記入したものです。
+## (注)
+
+- `XXX HERE` というコメントは、関数コール、注目したいところ、等の目印として私が記入したものです。
+- RFEでました: [Bug 1708511 - \[RFE\] admissionConfig.pluginConfig.BuildDefaults should not embed ENV value to keep portability](https://bugzilla.redhat.com/show_bug.cgi?id=1708511)
+
 
 # 結論
 
