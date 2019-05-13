@@ -1,6 +1,6 @@
 # 動機
 
-Proxy設定をした環境でコンテナをビルドすると、コンテナイメージにProxy関連の環境変数設定が埋め込まれてしまい、このコンテナイメージを別の環境に持っていくとうまく動かない、らしい。
+Proxy設定をした環境でコンテナをビルドすると、コンテナイメージにProxy関連の環境変数設定が埋め込まれてしまい、このコンテナイメージを別の環境に持っていくとうまく動かない。
 
 この動きの詳細を調査するためソースコードを追いかけた記録がこの文書です。
 
@@ -8,7 +8,7 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df956be2a16a9c303427aac2055a6aa608](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
 
-`XXX HERE` というコメントは私が記入したものです。関数コール、注目したいところ、等を表しています。
+(注) `XXX HERE` というコメントは、関数コール、注目したいところ、等の目印として私が記入したものです。
 
 # 結論
 
@@ -25,7 +25,7 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 ## Controller Managerの起動
 
-Controller Managerはコンテナとして起動している。
+Controller ManagerはPodとして起動している。
 
 ```
 [ori@ocp311-master1 ~]$ oc -n kube-system get pod
@@ -36,7 +36,8 @@ master-etcd-ocp311-master1.example.com          1/1       Running   7          1
 ```
 
 `master-controllers-ocp311-master1.example.com` というPodがそれ。
-中で動いているプロセスを確認する。
+
+Controller Managerの中で動いているプロセスを確認する。
 
 ```
 [ori@ocp311-master1 ~]$ oc -n kube-system get pod master-controllers-ocp311-master1.example.com -o yaml
@@ -64,7 +65,7 @@ spec:
 <snip>
 ```
 
-`openshift start master controllers --config=/etc/origin/master/master-config.yaml ...` というコマンドラインで起動している。覚えた。
+`openshift start master controllers --config=/etc/origin/master/master-config.yaml ...` というコマンドラインで起動している ( `hypershift` ではない)。
 
 ## master-config.yamlの設定
 
@@ -94,13 +95,13 @@ admissionConfig:
         gitNoProxy: '*,.cluster.local,.svc,169.254.169.254,172.30.0.1,192.168.0.101,192.168.0.249,192.168.0.95,infranode1.37b4.internal,infranode2.37b4.internal,loadbalancer.37b4.internal,master1.37b4.internal,master2.37b4.internal,master3.37b4.internal,node1.37b4.internal,node2.37b4.internal,node3.37b4.internal'
 ```
 
-`admissionConfig.pluginConfig.BuildDefaults.configuration.env` にenvが入る。覚えた。
+`admissionConfig.pluginConfig.BuildDefaults.configuration.env` にenvが入る。
 
 
 # master-config.yamlの読み込み
 
-hypershiftコマンドから起動する場合と、openshfitコマンドから起動する場合の2通りがあるようです。
-今回はopenshiftコマンドから起動していますので、そちらを見ます。
+hypershiftコマンドから起動する場合と、openshfitコマンドから起動する場合の2通りがあるっぽい。
+今回はopenshiftコマンドから起動しているので、そちらを見ていく。
 
 ## openshiftコマンドで起動する場合
 
@@ -123,7 +124,7 @@ main() @cmd/openshift/openshift.go
                     (MasterConfig structからOpenshiftControllerConfig structを構成する)
 ```
 
-- NewCommandStartMasterControllers() で `--config`オプションの引数を解析する。
+- NewCommandStartMasterControllers() で `--config` オプションの引数を解析する。
 - ReadAndResolveMasterConfig() でmaster-config.yamlを読み込む。
 - ConvertMasterConfigToOpenshiftControllerConfig() でmaster-config.yamlのBuildDefaultsを読み込む。
 
@@ -331,6 +332,8 @@ func NewCommandStartMasterControllers(name, basename string, out, errout io.Writ
 }
 ```
 
+`MasterOptions.configFile` に `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
+
 - MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
 
 ```go
@@ -391,6 +394,8 @@ func (o MasterOptions) RunMaster() error {
 }
 ```
 
+master-config.yamlを読んで、`MasterConfig` structに入れて、`Master` structを作る。
+
 - Master.Start() @pkg/cmd/server/start/start_master.go
 
 ```go
@@ -426,6 +431,8 @@ func (m *Master) Start() error {
     return nil
 }
 ```
+
+`MasterConfig` structから `OpenshiftControllerConfig` structを作る。
 
 - ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
 
@@ -518,7 +525,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 }
 ```
 
-`OpenShiftControllerConfig.Build.BuildDefaults` で参照できる。
+最終的に、master-config.yamlの `admissionConfig.pluginConfig.BuildDefaults` は `OpenShiftControllerConfig` structに `OpenShiftControllerConfig.Build.BuildDefaults` として格納される。
 
 # build Podの起動
 
