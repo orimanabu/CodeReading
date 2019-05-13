@@ -102,12 +102,12 @@ admissionConfig:
 `admissionConfig.pluginConfig.BuildDefaults.configuration.env` にenvが入る。
 
 
-# master-config.yamlの読み込み
+# master-config.yamlの設定をロードする
 
 hypershiftコマンドから起動する場合と、openshfitコマンドから起動する場合の2通りがあるっぽい。
 今回はopenshiftコマンドから起動しているので、そちらを見ていく。
 
-## openshiftコマンドで起動してmaster-config.yamlを読み込むまで
+関数呼び出しの流れは下記のようになる。
 
 ```
 main() @cmd/openshift/openshift.go
@@ -116,19 +116,20 @@ main() @cmd/openshift/openshift.go
     └NewCommandStart() @pkg/cmd/server/start/start.go
       └NewCommandStartMaster() @pkg/cmd/server/start/start_master.go
         └NewCommandStartMasterControllers() @pkg/cmd/server/start/start_controllers.go
-          │  (MasterOptions.ConfigFileに--configオプションの引数を入れる)
           └MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
             └MasterOptions.RunMaster() @pkg/cmd/server/start/start_master.go
               ├ReadAndResolveMasterConfig() @pkg/cmd/server/apis/config/latest/helpers.go
-              │  (master-config.yamlを読んで、MasterConfig structに入れて、Master structを構成する、)
               └Master.Start() @pkg/cmd/server/start/start_master.go
                 └ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
-                    (MasterConfig structからOpenshiftControllerConfig structを構成する)
 ```
 
-- NewCommandStartMasterControllers() で `--config` オプションの引数を解析する。
-- ReadAndResolveMasterConfig() でmaster-config.yamlを読み込む。
-- ConvertMasterConfigToOpenshiftControllerConfig() でmaster-config.yamlのBuildDefaultsを読み込む。
+下記2段階にわけて読む。
+- `--config` オプションの引数取得
+- master-config.yamlの読み込み
+
+## `--config` オプションの引数取得
+
+NewCommandStartMasterControllers() で `--config` オプションの引数を解析する。
 
 <details><summary>
 詳細はこちら:
@@ -337,6 +338,17 @@ func NewCommandStartMasterControllers(name, basename string, out, errout io.Writ
 ```
 
 `MasterOptions.configFile` に `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
+</div>
+</details>
+
+## master-config.yamlの読み込み
+
+まず、`ReadAndResolveMasterConfig()` でmaster-config.yamlを読み込む。
+次に、`ConvertMasterConfigToOpenshiftControllerConfig()` でmaster-config.yamlのBuildDefaultsを読み込む。
+
+<details><summary>
+詳細はこちら:
+</summary><div>
 
 - MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
 
