@@ -267,44 +267,44 @@ func NewCommandStartMaster(basename string, out, errout io.Writer) (*cobra.Comma
 ```go
 // NewCommandStartMasterControllers starts only the controllers
 func NewCommandStartMasterControllers(name, basename string, out, errout io.Writer) (*cobra.Command, *MasterOptions) {
-	options := &MasterOptions{Output: out}
-	options.DefaultsFromName(basename)
+    options := &MasterOptions{Output: out}
+    options.DefaultsFromName(basename)
 
-	cmd := &cobra.Command{
-		Use:   "controllers",
-		Short: "Launch master controllers",
-		Long:  fmt.Sprintf(controllersLong, basename, name),
-		Run: func(c *cobra.Command, args []string) {
-
-<snip>
-
-			origin.StartProfiler()
-
-			if err := options.StartMaster(); err != nil { // XXX HERE
-				if kerrors.IsInvalid(err) {
-					if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
-						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
-						for _, cause := range details.Causes {
-							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
-						}
-						os.Exit(255)
-					}
-				}
-				glog.Fatal(err)
-			}
-		},
-	}
+    cmd := &cobra.Command{
+        Use:   "controllers",
+        Short: "Launch master controllers",
+        Long:  fmt.Sprintf(controllersLong, basename, name),
+        Run: func(c *cobra.Command, args []string) {
 
 <snip>
 
-	flags := cmd.Flags()
-	// This command only supports reading from config and the listen argument
-	flags.StringVar(&options.ConfigFile, "config", "", "Location of the master configuration file to run from. Required") // XXX HERE
-	cmd.MarkFlagFilename("config", "yaml", "yml")
-	flags.StringVar(&lockServiceName, "lock-service-name", "", "Name of a service in the kube-system namespace to use as a lock, overrides config.")
-	BindListenArg(listenArg, flags, "")
+            origin.StartProfiler()
 
-	return cmd, options
+            if err := options.StartMaster(); err != nil { // XXX HERE
+                if kerrors.IsInvalid(err) {
+                    if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
+                        fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
+                        for _, cause := range details.Causes {
+                            fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
+                        }
+                        os.Exit(255)
+                    }
+                }
+                glog.Fatal(err)
+            }
+        },
+    }
+
+<snip>
+
+    flags := cmd.Flags()
+    // This command only supports reading from config and the listen argument
+    flags.StringVar(&options.ConfigFile, "config", "", "Location of the master configuration file to run from. Required") // XXX HERE
+    cmd.MarkFlagFilename("config", "yaml", "yml")
+    flags.StringVar(&lockServiceName, "lock-service-name", "", "Name of a service in the kube-system namespace to use as a lock, overrides config.")
+    BindListenArg(listenArg, flags, "")
+
+    return cmd, options
 }
 ```
 
@@ -337,25 +337,25 @@ func (o MasterOptions) StartMaster() error {
 // 3.  Writes the fully specified master config and exits if needed
 // 4.  Starts the master based on the fully specified config
 func (o MasterOptions) RunMaster() error {
-	startUsingConfigFile := !o.IsWriteConfigOnly() && o.IsRunFromConfig()
+    startUsingConfigFile := !o.IsWriteConfigOnly() && o.IsRunFromConfig()
 
-	if !startUsingConfigFile && o.CreateCertificates {
-		glog.V(2).Infof("Generating master configuration")
-		if err := o.CreateCerts(); err != nil {
-			return err
-		}
-	}
+    if !startUsingConfigFile && o.CreateCertificates {
+        glog.V(2).Infof("Generating master configuration")
+        if err := o.CreateCerts(); err != nil {
+            return err
+        }
+    }
 
-	var masterConfig *configapi.MasterConfig
-	var err error
-	if startUsingConfigFile {
-		masterConfig, err = configapilatest.ReadAndResolveMasterConfig(o.ConfigFile) // XXX HERE
-	} else {
-		masterConfig, err = o.MasterArgs.BuildSerializeableMasterConfig()
-	}
-	if err != nil {
-		return err
-	}
+    var masterConfig *configapi.MasterConfig
+    var err error
+    if startUsingConfigFile {
+        masterConfig, err = configapilatest.ReadAndResolveMasterConfig(o.ConfigFile) // XXX HERE
+    } else {
+        masterConfig, err = o.MasterArgs.BuildSerializeableMasterConfig()
+    }
+    if err != nil {
+        return err
+    }
 
 <snip>
 
@@ -408,90 +408,90 @@ func (m *Master) Start() error {
 
 ```go
 func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfig) *configapi.OpenshiftControllerConfig {
-	// this is the old flag binding logic
-	flagOptions, err := kcmoptions.NewKubeControllerManagerOptions()
-	if err != nil {
-		// coder error
-		panic(err)
-	}
-	flagOptions.GenericComponent.LeaderElection.RetryPeriod = metav1.Duration{Duration: 3 * time.Second}
-	flagFunc := cm.OriginControllerManagerAddFlags(flagOptions)
-	errors := cmdflags.Resolve(input.KubernetesMasterConfig.ControllerArguments, flagFunc)
-	if len(errors) > 0 {
-		// this can't happen since we only run this on configs we have validated
-		panic(errors)
-	}
+    // this is the old flag binding logic
+    flagOptions, err := kcmoptions.NewKubeControllerManagerOptions()
+    if err != nil {
+        // coder error
+        panic(err)
+    }
+    flagOptions.GenericComponent.LeaderElection.RetryPeriod = metav1.Duration{Duration: 3 * time.Second}
+    flagFunc := cm.OriginControllerManagerAddFlags(flagOptions)
+    errors := cmdflags.Resolve(input.KubernetesMasterConfig.ControllerArguments, flagFunc)
+    if len(errors) > 0 {
+        // this can't happen since we only run this on configs we have validated
+        panic(errors)
+    }
 
-	// deep copy to make sure no linger references are shared
-	in := input.DeepCopy()
+    // deep copy to make sure no linger references are shared
+    in := input.DeepCopy()
 
-	registryURLs := []string{}
-	if len(in.ImagePolicyConfig.ExternalRegistryHostname) > 0 {
-		registryURLs = append(registryURLs, in.ImagePolicyConfig.ExternalRegistryHostname)
-	}
-	if len(in.ImagePolicyConfig.InternalRegistryHostname) > 0 {
-		registryURLs = append(registryURLs, in.ImagePolicyConfig.InternalRegistryHostname)
-	}
+    registryURLs := []string{}
+    if len(in.ImagePolicyConfig.ExternalRegistryHostname) > 0 {
+        registryURLs = append(registryURLs, in.ImagePolicyConfig.ExternalRegistryHostname)
+    }
+    if len(in.ImagePolicyConfig.InternalRegistryHostname) > 0 {
+        registryURLs = append(registryURLs, in.ImagePolicyConfig.InternalRegistryHostname)
+    }
 
-	buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig) // XXX HERE
-	if err != nil {
-		// this should happen on scrubbed input
-		panic(err)
-	}
-	buildOverrides, err := getBuildOverrides(in.AdmissionConfig.PluginConfig)
-	if err != nil {
-		// this should happen on scrubbed input
-		panic(err)
-	}
+    buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig) // XXX HERE
+    if err != nil {
+        // this should happen on scrubbed input
+        panic(err)
+    }
+    buildOverrides, err := getBuildOverrides(in.AdmissionConfig.PluginConfig)
+    if err != nil {
+        // this should happen on scrubbed input
+        panic(err)
+    }
 
-	ret := &configapi.OpenshiftControllerConfig{
-		ClientConnectionOverrides: in.MasterClients.OpenShiftLoopbackClientConnectionOverrides,
-		ServingInfo:               &in.ServingInfo,
-		Controllers:               in.ControllerConfig.Controllers,
-		LeaderElection: configapi.LeaderElectionConfig{
-			RetryPeriod:   flagOptions.GenericComponent.LeaderElection.RetryPeriod,
-			RenewDeadline: flagOptions.GenericComponent.LeaderElection.RenewDeadline,
-			LeaseDuration: flagOptions.GenericComponent.LeaderElection.LeaseDuration,
-		},
-		ResourceQuota: configapi.ResourceQuotaControllerConfig{
-			ConcurrentSyncs: flagOptions.ResourceQuotaController.ConcurrentResourceQuotaSyncs,
-			SyncPeriod:      flagOptions.ResourceQuotaController.ResourceQuotaSyncPeriod,
-			MinResyncPeriod: flagOptions.GenericComponent.MinResyncPeriod,
-		},
-		ServiceServingCert: in.ControllerConfig.ServiceServingCert,
-		Deployer: configapi.DeployerControllerConfig{
-			ImageTemplateFormat: in.ImageConfig,
-		},
-		Build: configapi.BuildControllerConfig{
-			ImageTemplateFormat: in.ImageConfig,
+    ret := &configapi.OpenshiftControllerConfig{
+        ClientConnectionOverrides: in.MasterClients.OpenShiftLoopbackClientConnectionOverrides,
+        ServingInfo:               &in.ServingInfo,
+        Controllers:               in.ControllerConfig.Controllers,
+        LeaderElection: configapi.LeaderElectionConfig{
+            RetryPeriod:   flagOptions.GenericComponent.LeaderElection.RetryPeriod,
+            RenewDeadline: flagOptions.GenericComponent.LeaderElection.RenewDeadline,
+            LeaseDuration: flagOptions.GenericComponent.LeaderElection.LeaseDuration,
+        },
+        ResourceQuota: configapi.ResourceQuotaControllerConfig{
+            ConcurrentSyncs: flagOptions.ResourceQuotaController.ConcurrentResourceQuotaSyncs,
+            SyncPeriod:      flagOptions.ResourceQuotaController.ResourceQuotaSyncPeriod,
+            MinResyncPeriod: flagOptions.GenericComponent.MinResyncPeriod,
+        },
+        ServiceServingCert: in.ControllerConfig.ServiceServingCert,
+        Deployer: configapi.DeployerControllerConfig{
+            ImageTemplateFormat: in.ImageConfig,
+        },
+        Build: configapi.BuildControllerConfig{
+            ImageTemplateFormat: in.ImageConfig,
 
-			BuildDefaults:  buildDefaults,
-			BuildOverrides: buildOverrides,
-		},
-		ServiceAccount: configapi.ServiceAccountControllerConfig{
-			ManagedNames: in.ServiceAccountConfig.ManagedNames,
-		},
-		DockerPullSecret: configapi.DockerPullSecretControllerConfig{
-			RegistryURLs: registryURLs,
-		},
-		Network: configapi.NetworkControllerConfig{
-			ClusterNetworks:    in.NetworkConfig.ClusterNetworks,
-			NetworkPluginName:  in.NetworkConfig.NetworkPluginName,
-			ServiceNetworkCIDR: in.NetworkConfig.ServiceNetworkCIDR,
-			VXLANPort:          in.NetworkConfig.VXLANPort,
-		},
-		Ingress: configapi.IngressControllerConfig{
-			IngressIPNetworkCIDR: in.NetworkConfig.IngressIPNetworkCIDR,
-		},
-		SecurityAllocator: *in.ProjectConfig.SecurityAllocator,
-		ImageImport: configapi.ImageImportControllerConfig{
-			DisableScheduledImport:                     in.ImagePolicyConfig.DisableScheduledImport,
-			MaxScheduledImageImportsPerMinute:          in.ImagePolicyConfig.MaxScheduledImageImportsPerMinute,
-			ScheduledImageImportMinimumIntervalSeconds: in.ImagePolicyConfig.ScheduledImageImportMinimumIntervalSeconds,
-		},
-	}
+            BuildDefaults:  buildDefaults,
+            BuildOverrides: buildOverrides,
+        },
+        ServiceAccount: configapi.ServiceAccountControllerConfig{
+            ManagedNames: in.ServiceAccountConfig.ManagedNames,
+        },
+        DockerPullSecret: configapi.DockerPullSecretControllerConfig{
+            RegistryURLs: registryURLs,
+        },
+        Network: configapi.NetworkControllerConfig{
+            ClusterNetworks:    in.NetworkConfig.ClusterNetworks,
+            NetworkPluginName:  in.NetworkConfig.NetworkPluginName,
+            ServiceNetworkCIDR: in.NetworkConfig.ServiceNetworkCIDR,
+            VXLANPort:          in.NetworkConfig.VXLANPort,
+        },
+        Ingress: configapi.IngressControllerConfig{
+            IngressIPNetworkCIDR: in.NetworkConfig.IngressIPNetworkCIDR,
+        },
+        SecurityAllocator: *in.ProjectConfig.SecurityAllocator,
+        ImageImport: configapi.ImageImportControllerConfig{
+            DisableScheduledImport:                     in.ImagePolicyConfig.DisableScheduledImport,
+            MaxScheduledImageImportsPerMinute:          in.ImagePolicyConfig.MaxScheduledImageImportsPerMinute,
+            ScheduledImageImportMinimumIntervalSeconds: in.ImagePolicyConfig.ScheduledImageImportMinimumIntervalSeconds,
+        },
+    }
 
-	return ret
+    return ret
 }
 ```
 
@@ -605,20 +605,20 @@ func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, 
 
 <snip>
 
-	go leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
-		Lock:          rl,
-		LeaseDuration: config.LeaderElection.LeaseDuration.Duration,
-		RenewDeadline: config.LeaderElection.RenewDeadline.Duration,
-		RetryPeriod:   config.LeaderElection.RetryPeriod.Duration,
-		Callbacks: leaderelection.LeaderCallbacks{
-			OnStartedLeading: originControllerManager,
-			OnStoppedLeading: func() {
-				glog.Fatalf("leaderelection lost")
-			},
-		},
-	})
+    go leaderelection.RunOrDie(leaderelection.LeaderElectionConfig{
+        Lock:          rl,
+        LeaseDuration: config.LeaderElection.LeaseDuration.Duration,
+        RenewDeadline: config.LeaderElection.RenewDeadline.Duration,
+        RetryPeriod:   config.LeaderElection.RetryPeriod.Duration,
+        Callbacks: leaderelection.LeaderCallbacks{
+            OnStartedLeading: originControllerManager,
+            OnStoppedLeading: func() {
+                glog.Fatalf("leaderelection lost")
+            },
+        },
+    })
 
-	return nil
+    return nil
 ```
 
 - NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go
@@ -627,40 +627,40 @@ func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, 
 
 ```go
 func NewControllerContext(
-	config configapi.OpenshiftControllerConfig,
-	inClientConfig *rest.Config,
-	stopCh <-chan struct{},
+    config configapi.OpenshiftControllerConfig,
+    inClientConfig *rest.Config,
+    stopCh <-chan struct{},
 ) (*ControllerContext, error) {
 
 
 <snip>
 
-	openshiftControllerContext := &ControllerContext{
-		OpenshiftControllerConfig: config,
+    openshiftControllerContext := &ControllerContext{
+        OpenshiftControllerConfig: config,
 
-		ClientBuilder: OpenshiftControllerClientBuilder{
-			ControllerClientBuilder: controller.SAControllerClientBuilder{
-				ClientConfig:         rest.AnonymousClientConfig(clientConfig),
-				CoreClient:           kubeClient.CoreV1(),
-				AuthenticationClient: kubeClient.AuthenticationV1(),
-				Namespace:            bootstrappolicy.DefaultOpenShiftInfraNamespace,
-			},
-		},
-		KubernetesInformers:       kexternalinformers.NewSharedInformerFactory(kubeClient, defaultInformerResyncPeriod),
-		AppsInformers:             appsinformer.NewSharedInformerFactory(appsClient, defaultInformerResyncPeriod),
-		BuildInformers:            buildinformer.NewSharedInformerFactory(buildClient, defaultInformerResyncPeriod),
-		ImageInformers:            imageinformer.NewSharedInformerFactory(imageClient, defaultInformerResyncPeriod),
-		NetworkInformers:          networkinformer.NewSharedInformerFactory(networkClient, defaultInformerResyncPeriod),
-		InternalQuotaInformers:    quotainformer.NewSharedInformerFactory(quotaClient, defaultInformerResyncPeriod),
-		InternalRouteInformers:    routeinformer.NewSharedInformerFactory(routerClient, defaultInformerResyncPeriod),
-		InternalTemplateInformers: templateinformer.NewSharedInformerFactory(templateClient, defaultInformerResyncPeriod),
-		Stop:             stopCh,
-		InformersStarted: make(chan struct{}),
-		RestMapper:       dynamicRestMapper,
-	}
-	openshiftControllerContext.GenericResourceInformer = openshiftControllerContext.ToGenericInformer()
+        ClientBuilder: OpenshiftControllerClientBuilder{
+            ControllerClientBuilder: controller.SAControllerClientBuilder{
+                ClientConfig:         rest.AnonymousClientConfig(clientConfig),
+                CoreClient:           kubeClient.CoreV1(),
+                AuthenticationClient: kubeClient.AuthenticationV1(),
+                Namespace:            bootstrappolicy.DefaultOpenShiftInfraNamespace,
+            },
+        },
+        KubernetesInformers:       kexternalinformers.NewSharedInformerFactory(kubeClient, defaultInformerResyncPeriod),
+        AppsInformers:             appsinformer.NewSharedInformerFactory(appsClient, defaultInformerResyncPeriod),
+        BuildInformers:            buildinformer.NewSharedInformerFactory(buildClient, defaultInformerResyncPeriod),
+        ImageInformers:            imageinformer.NewSharedInformerFactory(imageClient, defaultInformerResyncPeriod),
+        NetworkInformers:          networkinformer.NewSharedInformerFactory(networkClient, defaultInformerResyncPeriod),
+        InternalQuotaInformers:    quotainformer.NewSharedInformerFactory(quotaClient, defaultInformerResyncPeriod),
+        InternalRouteInformers:    routeinformer.NewSharedInformerFactory(routerClient, defaultInformerResyncPeriod),
+        InternalTemplateInformers: templateinformer.NewSharedInformerFactory(templateClient, defaultInformerResyncPeriod),
+        Stop:             stopCh,
+        InformersStarted: make(chan struct{}),
+        RestMapper:       dynamicRestMapper,
+    }
+    openshiftControllerContext.GenericResourceInformer = openshiftControllerContext.ToGenericInformer()
 
-	return openshiftControllerContext, nil
+    return openshiftControllerContext, nil
 }
 ```
 
@@ -781,61 +781,61 @@ func RunBuildController(ctx *ControllerContext) (bool, error) {
 ```go
 // NewBuildController creates a new BuildController.
 func NewBuildController(params *BuildControllerParams) *BuildController {
-	eventBroadcaster := record.NewBroadcaster()
-	eventBroadcaster.StartRecordingToSink(&ktypedclient.EventSinkImpl{Interface: params.KubeClient.CoreV1().Events("")})
+    eventBroadcaster := record.NewBroadcaster()
+    eventBroadcaster.StartRecordingToSink(&ktypedclient.EventSinkImpl{Interface: params.KubeClient.CoreV1().Events("")})
 
-	buildClient := buildmanualclient.NewClientBuildClient(params.BuildClient)
-	buildLister := params.BuildInformer.Lister()
-	buildConfigGetter := params.BuildConfigInformer.Lister()
-	c := &BuildController{
-		buildPatcher:      buildClient,
-		buildLister:       buildLister,
-		buildConfigGetter: buildConfigGetter,
-		buildDeleter:      buildClient,
-		secretStore:       params.SecretInformer.Lister(),
-		podClient:         params.KubeClient.CoreV1(),
-		kubeClient:        params.KubeClient,
-		podInformer:       params.PodInformer.Informer(),
-		podStore:          params.PodInformer.Lister(),
-		buildInformer:     params.BuildInformer.Informer(),
-		buildStore:        params.BuildInformer.Lister(),
-		imageStreamStore:  params.ImageStreamInformer.Lister(),
-		createStrategy: &typeBasedFactoryStrategy{
-			dockerBuildStrategy: params.DockerBuildStrategy,
-			sourceBuildStrategy: params.SourceBuildStrategy,
-			customBuildStrategy: params.CustomBuildStrategy,
-		},
-		buildDefaults:  params.BuildDefaults,
-		buildOverrides: params.BuildOverrides,
+    buildClient := buildmanualclient.NewClientBuildClient(params.BuildClient)
+    buildLister := params.BuildInformer.Lister()
+    buildConfigGetter := params.BuildConfigInformer.Lister()
+    c := &BuildController{
+        buildPatcher:      buildClient,
+        buildLister:       buildLister,
+        buildConfigGetter: buildConfigGetter,
+        buildDeleter:      buildClient,
+        secretStore:       params.SecretInformer.Lister(),
+        podClient:         params.KubeClient.CoreV1(),
+        kubeClient:        params.KubeClient,
+        podInformer:       params.PodInformer.Informer(),
+        podStore:          params.PodInformer.Lister(),
+        buildInformer:     params.BuildInformer.Informer(),
+        buildStore:        params.BuildInformer.Lister(),
+        imageStreamStore:  params.ImageStreamInformer.Lister(),
+        createStrategy: &typeBasedFactoryStrategy{
+            dockerBuildStrategy: params.DockerBuildStrategy,
+            sourceBuildStrategy: params.SourceBuildStrategy,
+            customBuildStrategy: params.CustomBuildStrategy,
+        },
+        buildDefaults:  params.BuildDefaults,
+        buildOverrides: params.BuildOverrides,
 
-		buildQueue:       workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
-		imageStreamQueue: newResourceTriggerQueue(),
-		buildConfigQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+        buildQueue:       workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
+        imageStreamQueue: newResourceTriggerQueue(),
+        buildConfigQueue: workqueue.NewRateLimitingQueue(workqueue.DefaultControllerRateLimiter()),
 
-		recorder:    eventBroadcaster.NewRecorder(buildscheme.EncoderScheme, corev1.EventSource{Component: "build-controller"}),
-		runPolicies: policy.GetAllRunPolicies(buildLister, buildClient),
-	}
+        recorder:    eventBroadcaster.NewRecorder(buildscheme.EncoderScheme, corev1.EventSource{Component: "build-controller"}),
+        runPolicies: policy.GetAllRunPolicies(buildLister, buildClient),
+    }
 
-	c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		UpdateFunc: c.podUpdated,
-		DeleteFunc: c.podDeleted,
-	})
-	c.buildInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.buildAdded,
-		UpdateFunc: c.buildUpdated,
-		DeleteFunc: c.buildDeleted,
-	})
-	params.ImageStreamInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
-		AddFunc:    c.imageStreamAdded,
-		UpdateFunc: c.imageStreamUpdated,
-	})
+    c.podInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+        UpdateFunc: c.podUpdated,
+        DeleteFunc: c.podDeleted,
+    })
+    c.buildInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+        AddFunc:    c.buildAdded,
+        UpdateFunc: c.buildUpdated,
+        DeleteFunc: c.buildDeleted,
+    })
+    params.ImageStreamInformer.Informer().AddEventHandler(cache.ResourceEventHandlerFuncs{
+        AddFunc:    c.imageStreamAdded,
+        UpdateFunc: c.imageStreamUpdated,
+    })
 
-	c.buildStoreSynced = c.buildInformer.HasSynced
-	c.podStoreSynced = c.podInformer.HasSynced
-	c.secretStoreSynced = params.SecretInformer.Informer().HasSynced
-	c.imageStreamStoreSynced = params.ImageStreamInformer.Informer().HasSynced
+    c.buildStoreSynced = c.buildInformer.HasSynced
+    c.podStoreSynced = c.podInformer.HasSynced
+    c.secretStoreSynced = params.SecretInformer.Informer().HasSynced
+    c.imageStreamStoreSynced = params.ImageStreamInformer.Informer().HasSynced
 
-	return c
+    return c
 }
 ```
 
@@ -1186,7 +1186,7 @@ func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
 // buildPodCreationStrategy is used by the build controller to
 // create a build pod based on a build strategy
 type buildPodCreationStrategy interface {
-	CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) // XXX HERE
+    CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) // XXX HERE
 }
 ```
 
@@ -1194,9 +1194,9 @@ type buildPodCreationStrategy interface {
 
 ```go
 type typeBasedFactoryStrategy struct {
-	dockerBuildStrategy buildPodCreationStrategy // XXX HERE
-	sourceBuildStrategy buildPodCreationStrategy // XXX HERE
-	customBuildStrategy buildPodCreationStrategy
+    dockerBuildStrategy buildPodCreationStrategy // XXX HERE
+    sourceBuildStrategy buildPodCreationStrategy // XXX HERE
+    customBuildStrategy buildPodCreationStrategy
 }
 ```
 
@@ -1204,28 +1204,28 @@ type typeBasedFactoryStrategy struct {
 
 ```go
 func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) {
-	var pod *corev1.Pod
-	var err error
-	switch {
-	case build.Spec.Strategy.DockerStrategy != nil:
-		pod, err = f.dockerBuildStrategy.CreateBuildPod(build) // XXX HERE
-	case build.Spec.Strategy.SourceStrategy != nil:
-		pod, err = f.sourceBuildStrategy.CreateBuildPod(build) // XXX HERE
-	case build.Spec.Strategy.CustomStrategy != nil:
-		pod, err = f.customBuildStrategy.CreateBuildPod(build)
-	case build.Spec.Strategy.JenkinsPipelineStrategy != nil:
-		return nil, fmt.Errorf("creating a build pod for Build %s/%s with the JenkinsPipeline strategy is not supported", build.Namespace, build.Name)
-	default:
-		return nil, fmt.Errorf("no supported build strategy defined for Build %s/%s", build.Namespace, build.Name)
-	}
+    var pod *corev1.Pod
+    var err error
+    switch {
+    case build.Spec.Strategy.DockerStrategy != nil:
+        pod, err = f.dockerBuildStrategy.CreateBuildPod(build) // XXX HERE
+    case build.Spec.Strategy.SourceStrategy != nil:
+        pod, err = f.sourceBuildStrategy.CreateBuildPod(build) // XXX HERE
+    case build.Spec.Strategy.CustomStrategy != nil:
+        pod, err = f.customBuildStrategy.CreateBuildPod(build)
+    case build.Spec.Strategy.JenkinsPipelineStrategy != nil:
+        return nil, fmt.Errorf("creating a build pod for Build %s/%s with the JenkinsPipeline strategy is not supported", build.Namespace, build.Name)
+    default:
+        return nil, fmt.Errorf("no supported build strategy defined for Build %s/%s", build.Namespace, build.Name)
+    }
 
-	if pod != nil {
-		if pod.Annotations == nil {
-			pod.Annotations = map[string]string{}
-		}
-		pod.Annotations[buildutil.BuildAnnotation] = build.Name
-	}
-	return pod, err
+    if pod != nil {
+        if pod.Annotations == nil {
+            pod.Annotations = map[string]string{}
+        }
+        pod.Annotations[buildutil.BuildAnnotation] = build.Name
+    }
+    return pod, err
 }
 ```
 
@@ -1235,88 +1235,88 @@ func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1
 // CreateBuildPod creates the pod to be used for the Docker build
 // TODO: Make the Pod definition configurable
 func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, error) {
-	data, err := runtime.Encode(buildJSONCodec, build)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode the build: %v", err)
-	}
+    data, err := runtime.Encode(buildJSONCodec, build)
+    if err != nil {
+        return nil, fmt.Errorf("failed to encode the build: %v", err)
+    }
 
 <snip>
 
-	pod := &v1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildapihelpers.GetBuildPodName(build),
-			Namespace: build.Namespace,
-			Labels:    getPodLabels(build),
-		},
-		Spec: v1.PodSpec{
-			ServiceAccountName: serviceAccount,
-			Containers: []v1.Container{
-				{
-					Name:    DockerBuild,
-					Image:   bs.Image,
-					Command: []string{"openshift-docker-build"}, // XXX HERE
-					Env:     copyEnvVarSlice(containerEnv),
-					// TODO: run unprivileged https://github.com/openshift/origin/issues/662
-					SecurityContext: &v1.SecurityContext{
-						Privileged: &privileged,
-					},
-					TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-					VolumeMounts: []v1.VolumeMount{
-						{
-							Name:      "buildworkdir",
-							MountPath: buildutil.BuildWorkDirMount,
-						},
-					},
-					ImagePullPolicy: v1.PullIfNotPresent,
-					Resources:       build.Spec.Resources,
-				},
-			},
-			Volumes: []v1.Volume{
-				{
-					Name: "buildworkdir",
-					VolumeSource: v1.VolumeSource{
-						EmptyDir: &v1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-			RestartPolicy: v1.RestartPolicyNever,
-			NodeSelector:  build.Spec.NodeSelector,
-		},
-	}
+    pod := &v1.Pod{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      buildapihelpers.GetBuildPodName(build),
+            Namespace: build.Namespace,
+            Labels:    getPodLabels(build),
+        },
+        Spec: v1.PodSpec{
+            ServiceAccountName: serviceAccount,
+            Containers: []v1.Container{
+                {
+                    Name:    DockerBuild,
+                    Image:   bs.Image,
+                    Command: []string{"openshift-docker-build"}, // XXX HERE
+                    Env:     copyEnvVarSlice(containerEnv),
+                    // TODO: run unprivileged https://github.com/openshift/origin/issues/662
+                    SecurityContext: &v1.SecurityContext{
+                        Privileged: &privileged,
+                    },
+                    TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+                    VolumeMounts: []v1.VolumeMount{
+                        {
+                            Name:      "buildworkdir",
+                            MountPath: buildutil.BuildWorkDirMount,
+                        },
+                    },
+                    ImagePullPolicy: v1.PullIfNotPresent,
+                    Resources:       build.Spec.Resources,
+                },
+            },
+            Volumes: []v1.Volume{
+                {
+                    Name: "buildworkdir",
+                    VolumeSource: v1.VolumeSource{
+                        EmptyDir: &v1.EmptyDirVolumeSource{},
+                    },
+                },
+            },
+            RestartPolicy: v1.RestartPolicyNever,
+            NodeSelector:  build.Spec.NodeSelector,
+        },
+    }
 
 <snip>
 
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers,
-		v1.Container{
-			Name:    "manage-dockerfile",
-			Image:   bs.Image,
-			Command: []string{"openshift-manage-dockerfile"}, // XXX HERE
-			Env:     copyEnvVarSlice(containerEnv),
-			TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []v1.VolumeMount{
-				{
-					Name:      "buildworkdir",
-					MountPath: buildutil.BuildWorkDirMount,
-				},
-			},
-			ImagePullPolicy: v1.PullIfNotPresent,
-			Resources:       build.Spec.Resources,
-		},
-	)
+    pod.Spec.InitContainers = append(pod.Spec.InitContainers,
+        v1.Container{
+            Name:    "manage-dockerfile",
+            Image:   bs.Image,
+            Command: []string{"openshift-manage-dockerfile"}, // XXX HERE
+            Env:     copyEnvVarSlice(containerEnv),
+            TerminationMessagePolicy: v1.TerminationMessageFallbackToLogsOnError,
+            VolumeMounts: []v1.VolumeMount{
+                {
+                    Name:      "buildworkdir",
+                    MountPath: buildutil.BuildWorkDirMount,
+                },
+            },
+            ImagePullPolicy: v1.PullIfNotPresent,
+            Resources:       build.Spec.Resources,
+        },
+    )
 
 <snip>
 
-	setOwnerReference(pod, build)
-	setupDockerSocket(pod)
-	setupCrioSocket(pod)
-	setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
-	// For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
-	// secrets into the main container.  The main container includes logic to copy them from the mounted
-	// location into the working directory.
-	// TODO: consider moving this into the git-clone container and doing the secret copying there instead.
-	setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
-	setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
-	return pod, nil
+    setOwnerReference(pod, build)
+    setupDockerSocket(pod)
+    setupCrioSocket(pod)
+    setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
+    // For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
+    // secrets into the main container.  The main container includes logic to copy them from the mounted
+    // location into the working directory.
+    // TODO: consider moving this into the git-clone container and doing the secret copying there instead.
+    setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
+    setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
+    return pod, nil
 }
 ```
 
@@ -1326,89 +1326,89 @@ func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, er
 // CreateBuildPod creates a pod that will execute the STI build
 // TODO: Make the Pod definition configurable
 func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) {
-	data, err := runtime.Encode(buildJSONCodec, build)
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode the Build %s/%s: %v", build.Namespace, build.Name, err)
-	}
+    data, err := runtime.Encode(buildJSONCodec, build)
+    if err != nil {
+        return nil, fmt.Errorf("failed to encode the Build %s/%s: %v", build.Namespace, build.Name, err)
+    }
 
 <snip>
 
-	privileged := true
-	pod := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildapihelpers.GetBuildPodName(build),
-			Namespace: build.Namespace,
-			Labels:    getPodLabels(build),
-		},
-		Spec: corev1.PodSpec{
-			ServiceAccountName: serviceAccount,
-			Containers: []corev1.Container{
-				{
-					Name:    StiBuild,
-					Image:   bs.Image,
-					Command: []string{"openshift-sti-build"},
-					Env:     copyEnvVarSlice(containerEnv),
-					// TODO: run unprivileged https://github.com/openshift/origin/issues/662
-					SecurityContext: &corev1.SecurityContext{
-						Privileged: &privileged,
-					},
-					TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-					VolumeMounts: []corev1.VolumeMount{
-						{
-							Name:      "buildworkdir",
-							MountPath: buildutil.BuildWorkDirMount,
-						},
-					},
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					Resources:       build.Spec.Resources,
-				},
-			},
-			Volumes: []corev1.Volume{
-				{
-					Name: "buildworkdir",
-					VolumeSource: corev1.VolumeSource{
-						EmptyDir: &corev1.EmptyDirVolumeSource{},
-					},
-				},
-			},
-			RestartPolicy: corev1.RestartPolicyNever,
-			NodeSelector:  build.Spec.NodeSelector,
-		},
-	}
+    privileged := true
+    pod := &corev1.Pod{
+        ObjectMeta: metav1.ObjectMeta{
+            Name:      buildapihelpers.GetBuildPodName(build),
+            Namespace: build.Namespace,
+            Labels:    getPodLabels(build),
+        },
+        Spec: corev1.PodSpec{
+            ServiceAccountName: serviceAccount,
+            Containers: []corev1.Container{
+                {
+                    Name:    StiBuild,
+                    Image:   bs.Image,
+                    Command: []string{"openshift-sti-build"},
+                    Env:     copyEnvVarSlice(containerEnv),
+                    // TODO: run unprivileged https://github.com/openshift/origin/issues/662
+                    SecurityContext: &corev1.SecurityContext{
+                        Privileged: &privileged,
+                    },
+                    TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+                    VolumeMounts: []corev1.VolumeMount{
+                        {
+                            Name:      "buildworkdir",
+                            MountPath: buildutil.BuildWorkDirMount,
+                        },
+                    },
+                    ImagePullPolicy: corev1.PullIfNotPresent,
+                    Resources:       build.Spec.Resources,
+                },
+            },
+            Volumes: []corev1.Volume{
+                {
+                    Name: "buildworkdir",
+                    VolumeSource: corev1.VolumeSource{
+                        EmptyDir: &corev1.EmptyDirVolumeSource{},
+                    },
+                },
+            },
+            RestartPolicy: corev1.RestartPolicyNever,
+            NodeSelector:  build.Spec.NodeSelector,
+        },
+    }
 
 <snip>
 
-	pod.Spec.InitContainers = append(pod.Spec.InitContainers,
-		corev1.Container{
-			Name:    "manage-dockerfile",
-			Image:   bs.Image,
-			Command: []string{"openshift-manage-dockerfile"},
-			Env:     copyEnvVarSlice(containerEnv),
-			TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "buildworkdir",
-					MountPath: buildutil.BuildWorkDirMount,
-				},
-			},
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Resources:       build.Spec.Resources,
-		},
-	)
+    pod.Spec.InitContainers = append(pod.Spec.InitContainers,
+        corev1.Container{
+            Name:    "manage-dockerfile",
+            Image:   bs.Image,
+            Command: []string{"openshift-manage-dockerfile"},
+            Env:     copyEnvVarSlice(containerEnv),
+            TerminationMessagePolicy: corev1.TerminationMessageFallbackToLogsOnError,
+            VolumeMounts: []corev1.VolumeMount{
+                {
+                    Name:      "buildworkdir",
+                    MountPath: buildutil.BuildWorkDirMount,
+                },
+            },
+            ImagePullPolicy: corev1.PullIfNotPresent,
+            Resources:       build.Spec.Resources,
+        },
+    )
 
 <snip>
 
-	setOwnerReference(pod, build)
-	setupDockerSocket(pod)
-	setupCrioSocket(pod)
-	setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
-	// For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
-	// secrets into the main container.  The main container includes logic to copy them from the mounted
-	// location into the working directory.
-	// TODO: consider moving this into the git-clone container and doing the secret copying there instead.
-	setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
-	setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
-	return pod, nil
+    setOwnerReference(pod, build)
+    setupDockerSocket(pod)
+    setupCrioSocket(pod)
+    setupDockerSecrets(pod, &pod.Spec.Containers[0], build.Spec.Output.PushSecret, strategy.PullSecret, build.Spec.Source.Images)
+    // For any secrets the user wants to reference from their Assemble script or Dockerfile, mount those
+    // secrets into the main container.  The main container includes logic to copy them from the mounted
+    // location into the working directory.
+    // TODO: consider moving this into the git-clone container and doing the secret copying there instead.
+    setupInputSecrets(pod, &pod.Spec.Containers[0], build.Spec.Source.Secrets)
+    setupInputConfigMaps(pod, &pod.Spec.Containers[0], build.Spec.Source.ConfigMaps)
+    return pod, nil
 }
 ```
 
@@ -1428,43 +1428,43 @@ main() @cmd/oc/oc.go
 
 ```go
 func main() {
-	logs.InitLogs()
-	defer logs.FlushLogs()
-	defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), version.Get())()
-	defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
+    logs.InitLogs()
+    defer logs.FlushLogs()
+    defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), version.Get())()
+    defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
 
-	rand.Seed(time.Now().UTC().UnixNano())
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
+    rand.Seed(time.Now().UTC().UnixNano())
+    if len(os.Getenv("GOMAXPROCS")) == 0 {
+        runtime.GOMAXPROCS(runtime.NumCPU())
+    }
 
-	// the kubectl scheme expects to have all the recognizable external types it needs to consume.  Install those here.
-	// We can't use the "normal" scheme because apply will use that to build stategic merge patches on CustomResources
-	utilruntime.Must(apps.Install(scheme.Scheme))
-	utilruntime.Must(authorization.Install(scheme.Scheme))
-	utilruntime.Must(build.Install(scheme.Scheme))
-	utilruntime.Must(image.Install(scheme.Scheme))
-	utilruntime.Must(network.Install(scheme.Scheme))
-	utilruntime.Must(oauth.Install(scheme.Scheme))
-	utilruntime.Must(operator.Install(scheme.Scheme))
-	utilruntime.Must(project.Install(scheme.Scheme))
-	utilruntime.Must(quota.Install(scheme.Scheme))
-	utilruntime.Must(route.Install(scheme.Scheme))
-	utilruntime.Must(security.Install(scheme.Scheme))
-	utilruntime.Must(template.Install(scheme.Scheme))
-	utilruntime.Must(user.Install(scheme.Scheme))
-	legacy.InstallExternalLegacyAll(scheme.Scheme)
+    // the kubectl scheme expects to have all the recognizable external types it needs to consume.  Install those here.
+    // We can't use the "normal" scheme because apply will use that to build stategic merge patches on CustomResources
+    utilruntime.Must(apps.Install(scheme.Scheme))
+    utilruntime.Must(authorization.Install(scheme.Scheme))
+    utilruntime.Must(build.Install(scheme.Scheme))
+    utilruntime.Must(image.Install(scheme.Scheme))
+    utilruntime.Must(network.Install(scheme.Scheme))
+    utilruntime.Must(oauth.Install(scheme.Scheme))
+    utilruntime.Must(operator.Install(scheme.Scheme))
+    utilruntime.Must(project.Install(scheme.Scheme))
+    utilruntime.Must(quota.Install(scheme.Scheme))
+    utilruntime.Must(route.Install(scheme.Scheme))
+    utilruntime.Must(security.Install(scheme.Scheme))
+    utilruntime.Must(template.Install(scheme.Scheme))
+    utilruntime.Must(user.Install(scheme.Scheme))
+    legacy.InstallExternalLegacyAll(scheme.Scheme)
 
-	// the legacyscheme is used in kubectl and expects to have the internal types registered.  Explicitly wire our types here.
-	// this does
-	install.InstallInternalOpenShift(legacyscheme.Scheme)
-	legacy.InstallInternalLegacyAll(scheme.Scheme)
+    // the legacyscheme is used in kubectl and expects to have the internal types registered.  Explicitly wire our types here.
+    // this does
+    install.InstallInternalOpenShift(legacyscheme.Scheme)
+    legacy.InstallInternalLegacyAll(scheme.Scheme)
 
-	basename := filepath.Base(os.Args[0])
-	command := cli.CommandFor(basename)
-	if err := command.Execute(); err != nil {
-		os.Exit(1)
-	}
+    basename := filepath.Base(os.Args[0])
+    command := cli.CommandFor(basename)
+    if err := command.Execute(); err != nil {
+        os.Exit(1)
+    }
 }
 ```
 
@@ -1474,50 +1474,50 @@ func main() {
 // CommandFor returns the appropriate command for this base name,
 // or the OpenShift CLI command.
 func CommandFor(basename string) *cobra.Command {
-	var cmd *cobra.Command
+    var cmd *cobra.Command
 
-	in, out, errout := os.Stdin, os.Stdout, os.Stderr
+    in, out, errout := os.Stdin, os.Stdout, os.Stderr
 
-	// Make case-insensitive and strip executable suffix if present
-	if runtime.GOOS == "windows" {
-		basename = strings.ToLower(basename)
-		basename = strings.TrimSuffix(basename, ".exe")
-	}
+    // Make case-insensitive and strip executable suffix if present
+    if runtime.GOOS == "windows" {
+        basename = strings.ToLower(basename)
+        basename = strings.TrimSuffix(basename, ".exe")
+    }
 
-	switch basename {
-	case "kubectl":
-		kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
-		cmd = kubecmd.NewKubectlCommand(in, out, errout)
-	case "openshift-deploy":
-		cmd = deployer.NewCommandDeployer(basename)
-	case "openshift-sti-build":
-		cmd = builder.NewCommandS2IBuilder(basename)
-	case "openshift-docker-build":
-		cmd = builder.NewCommandDockerBuilder(basename)
-	case "openshift-git-clone":
-		cmd = builder.NewCommandGitClone(basename)
-	case "openshift-manage-dockerfile":
-		cmd = builder.NewCommandManageDockerfile(basename)
-	case "openshift-extract-image-content":
-		cmd = builder.NewCommandExtractImageContent(basename)
-	case "openshift-router":
-		cmd = irouter.NewCommandTemplateRouter(basename)
-	case "openshift-f5-router":
-		cmd = irouter.NewCommandF5Router(basename)
-	case "openshift-recycle":
-		cmd = recycle.NewCommandRecycle(basename, out)
-	default:
-		kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
-		shimKubectlForOc()
-		cmd = NewCommandCLI("oc", "oc", in, out, errout)
-	}
+    switch basename {
+    case "kubectl":
+        kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
+        cmd = kubecmd.NewKubectlCommand(in, out, errout)
+    case "openshift-deploy":
+        cmd = deployer.NewCommandDeployer(basename)
+    case "openshift-sti-build":
+        cmd = builder.NewCommandS2IBuilder(basename)
+    case "openshift-docker-build":
+        cmd = builder.NewCommandDockerBuilder(basename)
+    case "openshift-git-clone":
+        cmd = builder.NewCommandGitClone(basename)
+    case "openshift-manage-dockerfile":
+        cmd = builder.NewCommandManageDockerfile(basename)
+    case "openshift-extract-image-content":
+        cmd = builder.NewCommandExtractImageContent(basename)
+    case "openshift-router":
+        cmd = irouter.NewCommandTemplateRouter(basename)
+    case "openshift-f5-router":
+        cmd = irouter.NewCommandF5Router(basename)
+    case "openshift-recycle":
+        cmd = recycle.NewCommandRecycle(basename, out)
+    default:
+        kcmdutil.DefaultPrintingScheme = ocscheme.PrintingInternalScheme
+        shimKubectlForOc()
+        cmd = NewCommandCLI("oc", "oc", in, out, errout)
+    }
 
-	if cmd.UsageFunc() == nil {
-		templates.ActsAsRootCommand(cmd, []string{"options"})
-	}
-	flagtypes.GLog(cmd.PersistentFlags())
+    if cmd.UsageFunc() == nil {
+        templates.ActsAsRootCommand(cmd, []string{"options"})
+    }
+    flagtypes.GLog(cmd.PersistentFlags())
 
-	return cmd
+    return cmd
 }
 ```
 
@@ -1525,31 +1525,31 @@ func CommandFor(basename string) *cobra.Command {
 
 ```go
 func NewCommandManageDockerfile(name string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   name,
-		Short: "Manage a dockerfile for a docker build",
-		Long:  manageDockerfileLong,
-		Run: func(c *cobra.Command, args []string) {
-			err := cmd.RunManageDockerfile(c.OutOrStderr())
-			kcmdutil.CheckErr(err)
-		},
-	}
-	cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
-	return cmd
+    cmd := &cobra.Command{
+        Use:   name,
+        Short: "Manage a dockerfile for a docker build",
+        Long:  manageDockerfileLong,
+        Run: func(c *cobra.Command, args []string) {
+            err := cmd.RunManageDockerfile(c.OutOrStderr())
+            kcmdutil.CheckErr(err)
+        },
+    }
+    cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
+    return cmd
 }
 
 func NewCommandExtractImageContent(name string) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   name,
-		Short: "Extract build input content from existing images",
-		Long:  extractImageContentLong,
-		Run: func(c *cobra.Command, args []string) {
-			err := cmd.RunExtractImageContent(c.OutOrStderr())
-			kcmdutil.CheckErr(err)
-		},
-	}
-	cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
-	return cmd
+    cmd := &cobra.Command{
+        Use:   name,
+        Short: "Extract build input content from existing images",
+        Long:  extractImageContentLong,
+        Run: func(c *cobra.Command, args []string) {
+            err := cmd.RunExtractImageContent(c.OutOrStderr())
+            kcmdutil.CheckErr(err)
+        },
+    }
+    cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
+    return cmd
 }
 ```
 
@@ -1564,21 +1564,21 @@ func NewCommandExtractImageContent(name string) *cobra.Command {
 // and also adds some env and label values to the dockerfile based on
 // the build information.
 func RunManageDockerfile(out io.Writer) error {
-	cfg, err := newBuilderConfigFromEnvironment(out, false)
-	if err != nil {
-		return err
-	}
-	return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build)
+    cfg, err := newBuilderConfigFromEnvironment(out, false)
+    if err != nil {
+        return err
+    }
+    return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build)
 }
 
 // RunExtractImageContent extracts files from existing images
 // into the build working directory.
 func RunExtractImageContent(out io.Writer) error {
-	cfg, err := newBuilderConfigFromEnvironment(out, true)
-	if err != nil {
-		return err
-	}
-	return cfg.extractImageContent()
+    cfg, err := newBuilderConfigFromEnvironment(out, true)
+    if err != nil {
+        return err
+    }
+    return cfg.extractImageContent()
 }
 ```
 
@@ -1593,29 +1593,29 @@ func RunExtractImageContent(out io.Writer) error {
 // and also adds some env and label values to the dockerfile based on
 // the build information.
 func ManageDockerfile(dir string, build *buildapiv1.Build) error {
-	os.MkdirAll(dir, 0777)
-	glog.V(5).Infof("Checking for presence of a Dockerfile")
-	// a Dockerfile has been specified, create or overwrite into the destination
-	if dockerfileSource := build.Spec.Source.Dockerfile; dockerfileSource != nil {
-		baseDir := dir
-		if len(build.Spec.Source.ContextDir) != 0 {
-			baseDir = filepath.Join(baseDir, build.Spec.Source.ContextDir)
-		}
-		if err := ioutil.WriteFile(filepath.Join(baseDir, "Dockerfile"), []byte(*dockerfileSource), 0660); err != nil {
-			return err
-		}
-	}
+    os.MkdirAll(dir, 0777)
+    glog.V(5).Infof("Checking for presence of a Dockerfile")
+    // a Dockerfile has been specified, create or overwrite into the destination
+    if dockerfileSource := build.Spec.Source.Dockerfile; dockerfileSource != nil {
+        baseDir := dir
+        if len(build.Spec.Source.ContextDir) != 0 {
+            baseDir = filepath.Join(baseDir, build.Spec.Source.ContextDir)
+        }
+        if err := ioutil.WriteFile(filepath.Join(baseDir, "Dockerfile"), []byte(*dockerfileSource), 0660); err != nil {
+            return err
+        }
+    }
 
-	// We only mutate the dockerfile if this is a docker strategy build, otherwise
-	// we leave it as it was provided.
-	if build.Spec.Strategy.DockerStrategy != nil {
-		sourceInfo, err := readSourceInfo()
-		if err != nil {
-			return fmt.Errorf("error reading git source info: %v", err)
-		}
-		return addBuildParameters(dir, build, sourceInfo)
-	}
-	return nil
+    // We only mutate the dockerfile if this is a docker strategy build, otherwise
+    // we leave it as it was provided.
+    if build.Spec.Strategy.DockerStrategy != nil {
+        sourceInfo, err := readSourceInfo()
+        if err != nil {
+            return fmt.Errorf("error reading git source info: %v", err)
+        }
+        return addBuildParameters(dir, build, sourceInfo)
+    }
+    return nil
 }
 ```
 
@@ -1626,50 +1626,50 @@ func ManageDockerfile(dir string, build *buildapiv1.Build) error {
 // If that's the case then change the Dockerfile to make the build with the given image.
 // Also append the environment variables and labels in the Dockerfile.
 func addBuildParameters(dir string, build *buildapiv1.Build, sourceInfo *git.SourceInfo) error {
-	dockerfilePath := getDockerfilePath(dir, build)
+    dockerfilePath := getDockerfilePath(dir, build)
 
-	in, err := ioutil.ReadFile(dockerfilePath)
-	if err != nil {
-		return err
-	}
-	node, err := imagebuilder.ParseDockerfile(bytes.NewBuffer(in))
-	if err != nil {
-		return err
-	}
+    in, err := ioutil.ReadFile(dockerfilePath)
+    if err != nil {
+        return err
+    }
+    node, err := imagebuilder.ParseDockerfile(bytes.NewBuffer(in))
+    if err != nil {
+        return err
+    }
 
-	// Update base image if build strategy specifies the From field.
-	if build.Spec.Strategy.DockerStrategy != nil && build.Spec.Strategy.DockerStrategy.From != nil && build.Spec.Strategy.DockerStrategy.From.Kind == "DockerImage" {
-		// Reduce the name to a minimal canonical form for the daemon
-		name := build.Spec.Strategy.DockerStrategy.From.Name
-		if ref, err := imagereference.Parse(name); err == nil {
-			name = ref.DaemonMinimal().Exact()
-		}
-		err := replaceLastFrom(node, name)
-		if err != nil {
-			return err
-		}
-	}
+    // Update base image if build strategy specifies the From field.
+    if build.Spec.Strategy.DockerStrategy != nil && build.Spec.Strategy.DockerStrategy.From != nil && build.Spec.Strategy.DockerStrategy.From.Kind == "DockerImage" {
+        // Reduce the name to a minimal canonical form for the daemon
+        name := build.Spec.Strategy.DockerStrategy.From.Name
+        if ref, err := imagereference.Parse(name); err == nil {
+            name = ref.DaemonMinimal().Exact()
+        }
+        err := replaceLastFrom(node, name)
+        if err != nil {
+            return err
+        }
+    }
 
-	// Append build info as environment variables.
-	if err := appendEnv(node, buildEnv(build, sourceInfo)); err != nil {
-		return err
-	}
+    // Append build info as environment variables.
+    if err := appendEnv(node, buildEnv(build, sourceInfo)); err != nil {
+        return err
+    }
 
-	// Append build labels.
-	if err := appendLabel(node, buildLabels(build, sourceInfo)); err != nil {
-		return err
-	}
+    // Append build labels.
+    if err := appendLabel(node, buildLabels(build, sourceInfo)); err != nil {
+        return err
+    }
 
-	// Insert environment variables defined in the build strategy.
-	if err := insertEnvAfterFrom(node, build.Spec.Strategy.DockerStrategy.Env); err != nil {
-		return err
-	}
+    // Insert environment variables defined in the build strategy.
+    if err := insertEnvAfterFrom(node, build.Spec.Strategy.DockerStrategy.Env); err != nil {
+        return err
+    }
 
-	replaceImagesFromSource(node, build.Spec.Source.Images)
+    replaceImagesFromSource(node, build.Spec.Source.Images)
 
-	out := dockerfile.Write(node)
-	glog.V(4).Infof("Replacing dockerfile\n%s\nwith:\n%s", string(in), string(out))
-	return overwriteFile(dockerfilePath, out)
+    out := dockerfile.Write(node)
+    glog.V(4).Infof("Replacing dockerfile\n%s\nwith:\n%s", string(in), string(out))
+    return overwriteFile(dockerfilePath, out)
 }
 ```
 
@@ -1679,31 +1679,31 @@ func addBuildParameters(dir string, build *buildapiv1.Build, sourceInfo *git.Sou
 // insertEnvAfterFrom inserts an ENV instruction with the environment variables
 // from env after every FROM instruction in node.
 func insertEnvAfterFrom(node *parser.Node, env []corev1.EnvVar) error {
-	if node == nil || len(env) == 0 {
-		return nil
-	}
+    if node == nil || len(env) == 0 {
+        return nil
+    }
 
-	// Build ENV instruction.
-	var m []dockerfile.KeyValue
-	for _, e := range env {
-		m = append(m, dockerfile.KeyValue{Key: e.Name, Value: e.Value})
-	}
-	buildEnv, err := dockerfile.Env(m)
-	if err != nil {
-		return err
-	}
+    // Build ENV instruction.
+    var m []dockerfile.KeyValue
+    for _, e := range env {
+        m = append(m, dockerfile.KeyValue{Key: e.Name, Value: e.Value})
+    }
+    buildEnv, err := dockerfile.Env(m)
+    if err != nil {
+        return err
+    }
 
-	// Insert the buildEnv after every FROM instruction.
-	// We iterate in reverse order, otherwise indices would have to be
-	// recomputed after each step, because we're changing node in-place.
-	indices := dockerfile.FindAll(node, dockercmd.From)
-	for i := len(indices) - 1; i >= 0; i-- {
-		err := dockerfile.InsertInstructions(node, indices[i]+1, buildEnv)
-		if err != nil {
-			return err
-		}
-	}
+    // Insert the buildEnv after every FROM instruction.
+    // We iterate in reverse order, otherwise indices would have to be
+    // recomputed after each step, because we're changing node in-place.
+    indices := dockerfile.FindAll(node, dockercmd.From)
+    for i := len(indices) - 1; i >= 0; i-- {
+        err := dockerfile.InsertInstructions(node, indices[i]+1, buildEnv)
+        if err != nil {
+            return err
+        }
+    }
 
-	return nil
+    return nil
 }
 ```
