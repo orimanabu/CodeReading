@@ -6,7 +6,7 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 コンテナイメージに埋め込まれるProxy設定は `/etc/origin/master/master-config.yaml` の `admissionConfig.pluginConfig.BuildDefaults.configuration.env` 等の情報。
 
-調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df956be2a16a9c303427aac2055a6aa608](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
+調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df95](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
 
 ## (注)
 
@@ -107,9 +107,7 @@ admissionConfig:
 hypershiftコマンドから起動する場合と、openshfitコマンドから起動する場合の2通りがあるっぽい。
 今回はopenshiftコマンドから起動しているので、そちらを見ていく。
 
-## openshiftコマンドで起動する場合
-
-### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 概要
+## openshiftコマンドで起動してmaster-config.yamlを読み込むまで
 
 ```
 main() @cmd/openshift/openshift.go
@@ -132,10 +130,8 @@ main() @cmd/openshift/openshift.go
 - ReadAndResolveMasterConfig() でmaster-config.yamlを読み込む。
 - ConvertMasterConfigToOpenshiftControllerConfig() でmaster-config.yamlのBuildDefaultsを読み込む。
 
-### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 詳細
-
 <details><summary>
-詳細
+詳細はこちら:
 </summary><div>
 
 - main() @cmd/openshift/openshift.go
@@ -581,10 +577,16 @@ Master.start()の後、RunOpenShiftControllerManager()に入る。
 - `BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go` でmaster-config.yamlに設定された環境変数を突っ込む
 という流れになる。
 
+以下、
+- build Podの起動直前まで
+- build PodのPod Spec作成
+- BuildDefaultで設定したの環境変数の注入
+の3段階にわけて見ていく。
+
 ## build Podの起動直前まで
 
 <details><summary>
-詳細
+詳細はこちら:
 </summary><div>
 
 まずは `Master.Start() @pkg/cmd/server/start/start_master.go` を再掲。
@@ -1134,10 +1136,10 @@ func (bc *BuildController) createPodSpec(build *buildv1.Build) (*corev1.Pod, err
 </div>
 </details>
 
-## build PodのPod Specの作成
+## build PodのPod Spec作成
 
 <details><summary>
-詳細
+詳細はこちら:
 </summary><div>
 
 - buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go
@@ -1383,7 +1385,7 @@ DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `o
 ## BuildDefaultで設定したの環境変数の注入
 
 <details><summary>
-詳細
+詳細はこちら:
 </summary><div>
 
 - BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
@@ -1474,11 +1476,12 @@ func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
 </div>
 </details>
 
-## openshift-manage-dockerfileコマンド
+# openshift-manage-dockerfileコマンド
 
 DockerビルドおよびS2Iビルドにおいて、build Pod起動時、Init Container内で `openshift-manage-dockerfile` コマンドを起動する。
+このコマンドの中で、FROMの直後にENVを挿入している。
 <details><summary>
-以下、その処理を見る。
+詳細はこちら:
 </summary><div>
 
 ```
