@@ -8,6 +8,8 @@ Proxy設定をした環境でコンテナをビルドすると、コンテナイ
 
 調査対象はgithubのOpenShift Originの[release-3.11](https://github.com/openshift/origin/tree/release-3.11)ブランチの先端 (commit id: [11bbf5df956be2a16a9c303427aac2055a6aa608](https://github.com/openshift/origin/tree/11bbf5df956be2a16a9c303427aac2055a6aa608))。
 
+`XXX HERE` というコメントは私が記入したものです。関数コール、注目したいところ、等を表しています。
+
 # 結論
 
 - `/etc/origin/master/master-config.yaml` の環境変数設定は、build PodのPod Specにmergesされる ([BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L148))
