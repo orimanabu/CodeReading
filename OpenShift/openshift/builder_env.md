@@ -411,8 +411,7 @@ func (o MasterOptions) RunMaster() error {
 ```
 
 `ReadAndResolveMasterConfig()` でmaster-config.yamlを読んで [`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L305) structを返す。
-
-[`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44) structに入れて、[`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) structを作る。
+この [`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44) structを使って [`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) structを作る。
 
 - Master.Start() @pkg/cmd/server/start/start_master.go
 
