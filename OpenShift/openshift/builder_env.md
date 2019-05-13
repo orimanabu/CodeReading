@@ -135,7 +135,7 @@ main() @cmd/openshift/openshift.go
 詳細はこちら:
 </summary><div>
 
-- main() @cmd/openshift/openshift.go
+- [main() @cmd/openshift/openshift.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/cmd/openshift/openshift.go#L26)
 
 ```go
 func main() {
@@ -159,7 +159,7 @@ func main() {
 }
 ```
 
-- CommandFor() @pkg/cmd/openshift/openshift.go
+- [CommandFor() @pkg/cmd/openshift/openshift.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift/openshift.go#L36:6)
 
 ```go
 // CommandFor returns the appropriate command for this base name,
@@ -187,7 +187,7 @@ func CommandFor(basename string) *cobra.Command {
 }
 ```
 
-- NewCommandOpenShift() @pkg/cmd/openshift/openshift.go
+- [NewCommandOpenShift() @pkg/cmd/openshift/openshift.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift/openshift.go#L59:6)
 
 ```go
 // NewCommandOpenShift creates the standard OpenShift command
@@ -214,7 +214,7 @@ func NewCommandOpenShift(name string) *cobra.Command {
 }
 ```
 
-- NewCommandStart() @pkg/cmd/server/start/start.go
+- [NewCommandStart() @pkg/cmd/server/start/start.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start.go#L15:6)
 
 ```go
 // NewCommandStart provides a CLI handler for 'start' command
@@ -243,7 +243,7 @@ func NewCommandStart(basename string, out, errout io.Writer, stopCh <-chan struc
 }
 ```
 
-- NewCommandStartMaster() @pkg/cmd/server/start/start_master.go
+- [NewCommandStartMaster() @pkg/cmd/server/start/start_master.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L75:6)
 
 ```go
 // NewCommandStartMaster provides a CLI handler for 'start master' command
@@ -291,7 +291,7 @@ func NewCommandStartMaster(basename string, out, errout io.Writer) (*cobra.Comma
 }
 ```
 
-- NewCommandStartMasterControllers() @pkg/cmd/server/start/start_controllers.go
+- [NewCommandStartMasterControllers() @pkg/cmd/server/start/start_controllers.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_controllers.go#L31:6)
 
 ```go
 // NewCommandStartMasterControllers starts only the controllers
@@ -350,7 +350,7 @@ func NewCommandStartMasterControllers(name, basename string, out, errout io.Writ
 詳細はこちら:
 </summary><div>
 
-- MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go
+- [MasterOptions.StartMaster() @pkg/cmd/server/start/start_master.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L202:24)
 
 ```go
 // StartMaster calls RunMaster and then waits forever
@@ -370,7 +370,7 @@ func (o MasterOptions) StartMaster() error {
 }
 ```
 
-- MasterOptions.RunMaster() @pkg/cmd/server/start/start_master.go
+- [MasterOptions.RunMaster() @pkg/cmd/server/start/start_master.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L222:24)
 
 ```go
 // RunMaster takes the options and:
@@ -413,7 +413,7 @@ func (o MasterOptions) RunMaster() error {
 `ReadAndResolveMasterConfig()` でmaster-config.yamlを読んで [`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L305) structを返す。
 この [`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44) structを使って [`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) structを作る。
 
-- Master.Start() @pkg/cmd/server/start/start_master.go
+- [Master.Start() @pkg/cmd/server/start/start_master.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L358:18)
 
 ```go
 // Start launches a master. It will error if possible, but some background processes may still
@@ -451,7 +451,7 @@ func (m *Master) Start() error {
 
 [`Master`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L341) 構造体の `config` フィールド ([`MasterConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L305) 構造体) から [`OpenshiftControllerConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/apis/config/types.go#L1507) 構造体を作る。
 
-- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
+- [ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/conversion.go#L22:6)
 
 ```go
 func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfig) *configapi.OpenshiftControllerConfig {
@@ -604,7 +604,7 @@ Controller Managerが起動してから `Master.start()` までは [master-confi
 
 まずは `Master.Start() @pkg/cmd/server/start/start_master.go` を再掲。
 
-- Master.Start() @pkg/cmd/server/start/start_master.go
+- [Master.Start() @pkg/cmd/server/start/start_master.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L358:18)
 
 ```go
 // Start launches a master. It will error if possible, but some background processes may still
@@ -642,7 +642,7 @@ func (m *Master) Start() error {
 
 以下、`RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go` から辿る。
 
-- RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
+- [RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller_manager.go#L26:6)
 
 ```go
 func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, clientConfig *rest.Config) error {
@@ -682,7 +682,7 @@ func RunOpenShiftControllerManager(config *configapi.OpenshiftControllerConfig, 
     return nil
 ```
 
-- NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go
+- [NewControllerContext() @pkg/cmd/openshift-controller-manager/controller/interfaces.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller/interfaces.go#L43:6)
 
 ```go
 func NewControllerContext(
@@ -725,7 +725,7 @@ func NewControllerContext(
 
 [`ControllerContext`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller/interfaces.go#L157) structの `OpenshiftControllerConfig.Build.BuildDefaults` フィールドからBuildDefaultsにアクセスできる。
 
-- startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
+- [startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller_manager.go#L131:6)
 
 ```go
 // startControllers launches the controllers
@@ -756,7 +756,7 @@ func startControllers(controllerContext *origincontrollers.ControllerContext) er
 }
 ```
 
-- ControllerInitializers @pkg/cmd/openshift-controller-manager/controller/config.go
+- [ControllerInitializers @pkg/cmd/openshift-controller-manager/controller/config.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller/config.go#L3)
 
 ```go
 var ControllerInitializers = map[string]InitFunc{
@@ -793,7 +793,7 @@ var ControllerInitializers = map[string]InitFunc{
 }
 ```
 
-- RunBuildController() @pkg/cmd/openshift-controller-manager/controller/build.go
+- [RunBuildController() @pkg/cmd/openshift-controller-manager/controller/build.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/openshift-controller-manager/controller/build.go#L14)
 
 ```go
 // RunController starts the build sync loop for builds and buildConfig processing.
@@ -837,7 +837,7 @@ func RunBuildController(ctx *ControllerContext) (bool, error) {
 }
 ```
 
-- NewBuildController() @pkg/build/controller/build/build_controller.go
+- [NewBuildController() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L172:6)
 
 ```go
 // NewBuildController creates a new BuildController.
@@ -902,7 +902,7 @@ func NewBuildController(params *BuildControllerParams) *BuildController {
 
 [`BuildController`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L121) structの `buildDefaults.Config.Env` フィールドが `admissionConfig.pluginConfig.BuildDefaults.configuration.env` に相当する。
 
-- BuildController.Run() @pkg/build/controller/build/build_controller.go
+- [BuildController.Run() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L231:28)
 
 ```go
 // Run begins watching and syncing.
@@ -934,7 +934,7 @@ func (bc *BuildController) Run(workers int, stopCh <-chan struct{}) {
 }
 ```
 
-- BuildController.buildWorker() @pkg/build/controller/build/build_controller.go
+- [BuildController.buildWorker() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L258:28)
 
 ```go
 func (bc *BuildController) buildWorker() {
@@ -946,7 +946,7 @@ func (bc *BuildController) buildWorker() {
 }
 ```
 
-- BuildController.buildWork() @pkg/build/controller/build/build_controller.go
+- [BuildController.buildWork() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L267:28)
 
 ```go
 // buildWork gets the next build from the buildQueue and invokes handleBuild on it
@@ -973,7 +973,7 @@ func (bc *BuildController) buildWork() bool {
 }
 ```
 
-- BuildController.handleBuild() @pkg/build/controller/build/build_controller.go
+- [BuildController.handleBuild() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L327:28)
 
 ```go
 // handleBuild retrieves the build's corresponding pod and calls the appropriate
@@ -1019,7 +1019,7 @@ func (bc *BuildController) handleBuild(build *buildv1.Build) error {
 }
 ```
 
-- BuildController.handleNewBuild() @pkg/build/controller/build/build_controller.go
+- [BuildController.handleNewBuild() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L434:28)
 
 ```go
 // handleNewBuild will check whether policy allows running the new build and if so, creates a pod
@@ -1066,7 +1066,7 @@ func (bc *BuildController) handleNewBuild(build *buildv1.Build, pod *corev1.Pod)
 }
 ```
 
-- BuildController.createBuildPod() @pkg/build/controller/build/build_controller.go
+- [BuildController.createBuildPod() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L789:28)
 
 ```go
 // createBuildPod creates a new pod to run a build
@@ -1108,7 +1108,7 @@ func (bc *BuildController) createBuildPod(build *buildv1.Build) (*buildUpdate, e
 <snip>
 ```
 
-- BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go
+- [BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/build_controller.go#L476:28)
 
 ```go
 // createPodSpec creates a pod spec for the given build, with all references already resolved.
@@ -1155,7 +1155,7 @@ func (bc *BuildController) createPodSpec(build *buildv1.Build) (*corev1.Pod, err
 詳細はこちら:
 </summary><div>
 
-- buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go
+- [buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/podcreationstrategy.go#L15:2)
 
 ```go
 // buildPodCreationStrategy is used by the build controller to
@@ -1165,7 +1165,7 @@ type buildPodCreationStrategy interface {
 }
 ```
 
-- typeBasedFactoryStrategy @pkg/build/controller/build/podcreationstrategy.go
+- [typeBasedFactoryStrategy @pkg/build/controller/build/podcreationstrategy.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/podcreationstrategy.go#L19)
 
 ```go
 type typeBasedFactoryStrategy struct {
@@ -1175,7 +1175,7 @@ type typeBasedFactoryStrategy struct {
 }
 ```
 
-- typeBasedFactoryStrategy.CreateBuildPod() @pkg/build/controller/build/podcreationstrategy.go
+- [typeBasedFactoryStrategy.CreateBuildPod() @pkg/build/controller/build/podcreationstrategy.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/podcreationstrategy.go#L24)
 
 ```go
 func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod, error) {
@@ -1206,7 +1206,7 @@ func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1
 
 ### Dockerビルド
 
-- DockerBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
+- [DockerBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/strategy/docker.go#L36)
 
 ```go
 // CreateBuildPod creates the pod to be used for the Docker build
@@ -1299,7 +1299,7 @@ func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, er
 
 ### S2I ビルド
 
-- SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
+- [SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/strategy/docker.go#L36)
 
 ```go
 // CreateBuildPod creates a pod that will execute the STI build
@@ -1401,7 +1401,7 @@ DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `o
 詳細はこちら:
 </summary><div>
 
-- BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
+- [BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L21)
 
 ```go
 // ApplyDefaults applies configured build defaults to a build pod
@@ -1431,7 +1431,7 @@ func (b BuildDefaults) ApplyDefaults(pod *corev1.Pod) error {
 }
 ```
 
-- BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
+- [BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L148:24)
 
 ```go
 func (b BuildDefaults) applyBuildDefaults(build *buildv1.Build) {
@@ -1448,7 +1448,7 @@ func (b BuildDefaults) applyBuildDefaults(build *buildv1.Build) {
 <snip>
 ```
 
-- addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
+- [addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L228:6)
 
 ```go
 func addDefaultEnvVar(build *buildv1.Build, v corev1.EnvVar) {
@@ -1464,7 +1464,7 @@ func addDefaultEnvVar(build *buildv1.Build, v corev1.EnvVar) {
 }
 ```
 
-- SetBuildEnv() @pkg/build/util/util.go
+- [SetBuildEnv() @pkg/build/util/util.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/util/util.go#L207:6)
 
 ```go
 // SetBuildEnv replaces the current build environment
