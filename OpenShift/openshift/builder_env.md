@@ -337,7 +337,7 @@ func NewCommandStartMasterControllers(name, basename string, out, errout io.Writ
 }
 ```
 
-`[MasterOptions](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44)` structの `configFile` フィールドに `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
+[`MasterOptions`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/server/start/start_master.go#L44) structの `configFile` フィールドに `--config` オプションで指定したパス (`/etc/origin/master/master-config.yaml`) が入る。
 </div>
 </details>
 
