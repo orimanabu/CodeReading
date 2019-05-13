@@ -1,61 +1,5 @@
 # xxx
 
-## kubeletの起動
-
-サービス `atomic-openshift-node` の内容:
-
-```
-[ori@ocp311-master1 ~]$ systemctl cat atomic-openshift-node
-# /etc/systemd/system/atomic-openshift-node.service
-[Unit]
-Description=OpenShift Node
-After=docker.service
-After=chronyd.service
-After=ntpd.service
-Wants=docker.service
-Documentation=https://github.com/openshift/origin
-Wants=dnsmasq.service
-After=dnsmasq.service
-
-[Service]
-Type=notify
-EnvironmentFile=/etc/sysconfig/atomic-openshift-node
-ExecStart=/usr/local/bin/openshift-node
-LimitNOFILE=65536
-LimitCORE=infinity
-WorkingDirectory=/var/lib/origin/
-SyslogIdentifier=atomic-openshift-node
-Restart=always
-RestartSec=5s
-TimeoutStartSec=300
-OOMScoreAdjust=-999
-
-[Install]
-WantedBy=multi-user.target
-```
-
-```
-[ori@ocp311-master1 ~]$ sudo cat /usr/local/bin/openshift-node
-#!/bin/sh
-
-# This launches the Kubelet by converting the node configuration into kube flags.
-
-set -euo pipefail
-
-if ! [[ -f /etc/origin/node/client-ca.crt ]]; then
-  if [[ -f /etc/origin/node/bootstrap.kubeconfig ]]; then
-    oc config --config=/etc/origin/node/bootstrap.kubeconfig view --raw --minify -o go-template='{{ index .clusters 0 "cluster" "certificate-authority-data" }}' | base64 -d - > /etc/origin/node/client-ca.crt
-  fi
-fi
-config=/etc/origin/node/bootstrap-node-config.yaml
-# TODO: remove when dynamic kubelet config is delivered
-if [[ -f /etc/origin/node/node-config.yaml ]]; then
-  config=/etc/origin/node/node-config.yaml
-fi
-flags=$( /usr/bin/openshift-node-config "--config=${config}" )
-eval "exec /usr/bin/hyperkube kubelet --v=${DEBUG_LOGLEVEL:-2} ${flags}"
-```
-
 ## Controller Managerの起動
 
 Controller Managerはコンテナとして起動している。
@@ -130,294 +74,14 @@ admissionConfig:
 `admissionConfig.pluginConfig.BuildDefaults.configuration.env` にenvが入る。覚えた。
 
 
-## プログラム中での保持
+# master-config.yamlの読み込み
 
-# xxx
+hypershiftコマンドから起動する場合と、openshfitコマンドから起動する場合の2通りがあるようです。
+今回はopenshiftコマンドから起動していますので、そちらを見ます。
 
-- main() @cmd/hypershift/main.go
+## openshiftコマンドで起動する場合
 
-```go
-func main() {
-	rand.Seed(time.Now().UTC().UnixNano())
-
-	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
-	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
-
-	logs.InitLogs()
-	defer logs.FlushLogs()
-	defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), version.Get())()
-	defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
-
-	if len(os.Getenv("GOMAXPROCS")) == 0 {
-		runtime.GOMAXPROCS(runtime.NumCPU())
-	}
-
-	command := NewHyperShiftCommand()
-	if err := command.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "%v\n", err)
-		os.Exit(1)
-	}
-}
-```
-
-- NewHyperShiftCommand @cmd/hypershift/main.go
-
-```go
-func NewHyperShiftCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "hypershift",
-		Short: "Combined server command for OpenShift",
-		Run: func(cmd *cobra.Command, args []string) {
-			cmd.Help()
-			os.Exit(1)
-		},
-	}
-
-	startEtcd, _ := openshift_etcd.NewCommandStartEtcdServer(openshift_etcd.RecommendedStartEtcdServerName, "hypershift", os.Stdout, os.Stderr)
-	startEtcd.Deprecated = "will be removed in 3.10"
-	startEtcd.Hidden = true
-	cmd.AddCommand(startEtcd)
-
-	startOpenShiftAPIServer := openshift_apiserver.NewOpenShiftAPIServerCommand(openshift_apiserver.RecommendedStartAPIServerName, "hypershift", os.Stdout, os.Stderr)
-	cmd.AddCommand(startOpenShiftAPIServer)
-
-	startOpenShiftKubeAPIServer := openshift_kube_apiserver.NewOpenShiftKubeAPIServerServerCommand(openshift_kube_apiserver.RecommendedStartAPIServerName, "hypershift", os.Stdout, os.Stderr)
-	cmd.AddCommand(startOpenShiftKubeAPIServer)
-
-	startOpenShiftControllerManager := openshift_controller_manager.NewOpenShiftControllerManagerCommand(openshift_controller_manager.RecommendedStartControllerManagerName, "hypershift", os.Stdout, os.Stderr)
-	cmd.AddCommand(startOpenShiftControllerManager)
-
-	experimental := openshift_experimental.NewExperimentalCommand(os.Stdout, os.Stderr)
-	cmd.AddCommand(experimental)
-
-	return cmd
-}
-```
-
-- NewOpenShiftControllerManagerCommand() @pkg/cmd/openshift-controller-manager/cmd.go
-
-```go
-func NewOpenShiftControllerManagerCommand(name, basename string, out, errout io.Writer) *cobra.Command {
-	options := &OpenShiftControllerManager{Output: out}
-
-	cmd := &cobra.Command{
-		Use:   name,
-		Short: "Start the OpenShift controllers",
-		Long:  longDescription,
-		Run: func(c *cobra.Command, args []string) {
-			kcmdutil.CheckErr(options.Validate())
-
-			origin.StartProfiler()
-
-			if err := options.StartControllerManager(); err != nil {
-				if kerrors.IsInvalid(err) {
-					if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
-						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
-						for _, cause := range details.Causes {
-							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
-						}
-						os.Exit(255)
-					}
-				}
-				glog.Fatal(err)
-			}
-		},
-	}
-
-	flags := cmd.Flags()
-	// This command only supports reading from config
-	flags.StringVar(&options.ConfigFile, "config", options.ConfigFile, "Location of the master configuration file to run from.")
-	cmd.MarkFlagFilename("config", "yaml", "yml")
-	cmd.MarkFlagRequired("config")
-	flags.StringVar(&options.KubeConfigFile, "kubeconfig", options.KubeConfigFile, "Location of the master configuration file to run from.")
-	cmd.MarkFlagFilename("kubeconfig", "kubeconfig")
-
-	return cmd
-}
-```
-
-- OpenShiftControllerManager.StartControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
-
-```go
-// StartAPIServer calls RunAPIServer and then waits forever
-func (o *OpenShiftControllerManager) StartControllerManager() error {
-	if err := o.RunControllerManager(); err != nil {
-		return err
-	}
-
-	go daemon.SdNotify(false, "READY=1")
-	select {}
-}
-```
-
-- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
-
-```go
-func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfig) *configapi.OpenshiftControllerConfig {
-	// this is the old flag binding logic
-	flagOptions, err := kcmoptions.NewKubeControllerManagerOptions()
-	if err != nil {
-		// coder error
-		panic(err)
-	}
-	flagOptions.GenericComponent.LeaderElection.RetryPeriod = metav1.Duration{Duration: 3 * time.Second}
-	flagFunc := cm.OriginControllerManagerAddFlags(flagOptions)
-	errors := cmdflags.Resolve(input.KubernetesMasterConfig.ControllerArguments, flagFunc)
-	if len(errors) > 0 {
-		// this can't happen since we only run this on configs we have validated
-		panic(errors)
-	}
-
-	// deep copy to make sure no linger references are shared
-	in := input.DeepCopy()
-
-	registryURLs := []string{}
-	if len(in.ImagePolicyConfig.ExternalRegistryHostname) > 0 {
-		registryURLs = append(registryURLs, in.ImagePolicyConfig.ExternalRegistryHostname)
-	}
-	if len(in.ImagePolicyConfig.InternalRegistryHostname) > 0 {
-		registryURLs = append(registryURLs, in.ImagePolicyConfig.InternalRegistryHostname)
-	}
-
-	buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig)
-	if err != nil {
-		// this should happen on scrubbed input
-		panic(err)
-	}
-	buildOverrides, err := getBuildOverrides(in.AdmissionConfig.PluginConfig)
-	if err != nil {
-		// this should happen on scrubbed input
-		panic(err)
-	}
-
-	ret := &configapi.OpenshiftControllerConfig{
-		ClientConnectionOverrides: in.MasterClients.OpenShiftLoopbackClientConnectionOverrides,
-		ServingInfo:               &in.ServingInfo,
-		Controllers:               in.ControllerConfig.Controllers,
-		LeaderElection: configapi.LeaderElectionConfig{
-			RetryPeriod:   flagOptions.GenericComponent.LeaderElection.RetryPeriod,
-			RenewDeadline: flagOptions.GenericComponent.LeaderElection.RenewDeadline,
-			LeaseDuration: flagOptions.GenericComponent.LeaderElection.LeaseDuration,
-		},
-		ResourceQuota: configapi.ResourceQuotaControllerConfig{
-			ConcurrentSyncs: flagOptions.ResourceQuotaController.ConcurrentResourceQuotaSyncs,
-			SyncPeriod:      flagOptions.ResourceQuotaController.ResourceQuotaSyncPeriod,
-			MinResyncPeriod: flagOptions.GenericComponent.MinResyncPeriod,
-		},
-		ServiceServingCert: in.ControllerConfig.ServiceServingCert,
-		Deployer: configapi.DeployerControllerConfig{
-			ImageTemplateFormat: in.ImageConfig,
-		},
-		Build: configapi.BuildControllerConfig{
-			ImageTemplateFormat: in.ImageConfig,
-
-			BuildDefaults:  buildDefaults,
-			BuildOverrides: buildOverrides,
-		},
-		ServiceAccount: configapi.ServiceAccountControllerConfig{
-			ManagedNames: in.ServiceAccountConfig.ManagedNames,
-		},
-		DockerPullSecret: configapi.DockerPullSecretControllerConfig{
-			RegistryURLs: registryURLs,
-		},
-		Network: configapi.NetworkControllerConfig{
-			ClusterNetworks:    in.NetworkConfig.ClusterNetworks,
-			NetworkPluginName:  in.NetworkConfig.NetworkPluginName,
-			ServiceNetworkCIDR: in.NetworkConfig.ServiceNetworkCIDR,
-			VXLANPort:          in.NetworkConfig.VXLANPort,
-		},
-		Ingress: configapi.IngressControllerConfig{
-			IngressIPNetworkCIDR: in.NetworkConfig.IngressIPNetworkCIDR,
-		},
-		SecurityAllocator: *in.ProjectConfig.SecurityAllocator,
-		ImageImport: configapi.ImageImportControllerConfig{
-			DisableScheduledImport:                     in.ImagePolicyConfig.DisableScheduledImport,
-			MaxScheduledImageImportsPerMinute:          in.ImagePolicyConfig.MaxScheduledImageImportsPerMinute,
-			ScheduledImageImportMinimumIntervalSeconds: in.ImagePolicyConfig.ScheduledImageImportMinimumIntervalSeconds,
-		},
-	}
-
-	return ret
-}
-```
-
-- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
-
-```go
-// RunAPIServer takes the options and starts the etcd server
-func (o *OpenShiftControllerManager) RunControllerManager() error {
-	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
-	if err != nil {
-		return err
-	}
-
-	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
-	if len(validationResults.Warnings) != 0 {
-		for _, warning := range validationResults.Warnings {
-			glog.Warningf("%v", warning)
-		}
-	}
-	if len(validationResults.Errors) != 0 {
-		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
-	}
-
-	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
-	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
-	if err != nil {
-		return err
-	}
-
-	return RunOpenShiftControllerManager(config, clientConfig)
-}
-```
-
-- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
-
-```go
-// RunAPIServer takes the options and starts the etcd server
-func (o *OpenShiftControllerManager) RunControllerManager() error {
-	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
-	if err != nil {
-		return err
-	}
-
-	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
-	if len(validationResults.Warnings) != 0 {
-		for _, warning := range validationResults.Warnings {
-			glog.Warningf("%v", warning)
-		}
-	}
-	if len(validationResults.Errors) != 0 {
-		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
-	}
-
-	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
-	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
-	if err != nil {
-		return err
-	}
-
-	return RunOpenShiftControllerManager(config, clientConfig)
-}
-```
-
-# xxx
-
-- transitionToPhase() @pkg/build/controller/build/build_controller.go
-o
-```go
-// transitionToPhase returns a buildUpdate object to transition a build to a new
-// phase with the given reason and message
-func transitionToPhase(phase buildv1.BuildPhase, reason buildv1.StatusReason, message string) *buildUpdate {
-    update := &buildUpdate{}
-    update.setPhase(phase)
-    update.setReason(reason)
-    update.setMessage(message)
-    return update
-}
-```
-
-# call graph
+### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 概要
 
 - main() @cmd/openshift/openshift.go
 - CommandFor() @pkg/cmd/openshift/openshift.go
@@ -426,32 +90,10 @@ func transitionToPhase(phase buildv1.BuildPhase, reason buildv1.StatusReason, me
 - NewCommandStartMaster() @pkg/cmd/server/start/start\_master.go
 - MasterOptions.StartMaster() @pkg/cmd/server/start/start\_master.go
 - MasterOptions.RunMaster() @pkg/cmd/server/start/start\_master.go
-- Master.Start() @pkg/cmd/server/start/start\_master.go
-- RunOpenShiftControllerManager()
+- Master.Start() @pkg/cmd/server/start/start_master.go
+- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
 
-- main() @cmd/hypershift/main.go
-- NewHyperShiftCommand() @cmd/hypershift/main.go
-- NewOpenShiftControllerManagerCommand() @pkg/cmd/openshift-controller-manager/cmd.go
-- OpenShiftControllerManager.StartControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
-- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
-- RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
-
-- startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
-- ControllerInitializers @pkg/cmd/openshift-controller-manager/controller/config.go
-- RunBuildController() @pkg/cmd/openshift-controller-manager/controller/build.go
-- BuildController.Run() @pkg/build/controller/build/build_controller.go
-- BuildController.buildWorker() @pkg/build/controller/build/build_controller.go
-- BuildController.buildWork() @pkg/build/controller/build/build_controller.go
-- BuildController.handleBuild() @pkg/build/controller/build/build_controller.go
-- BuildController.handleNewBuild() @pkg/build/controller/build/build_controller.go
-- BuildController.createBuildPod() @pkg/build/controller/build/build_controller.go
-- BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go
-- BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
-- BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
-- addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
-- SetBuildEnv() @pkg/build/util/util.go
-
-# a
+### openshiftコマンドで起動してmaster-config.yamlを読み込むまで - 詳細
 
 - main() @cmd/openshift/openshift.go
 
@@ -693,6 +335,374 @@ func (m *Master) Start() error {
     return nil
 }
 ```
+
+
+## hypershiftコマンドで起動する場合
+
+今回の調査とは直接関係はないですが、念のためざっと見ておきます。
+
+### 関数呼び出しの流れ
+
+- main() @cmd/hypershift/main.go
+- NewHyperShiftCommand @cmd/hypershift/main.go
+- NewOpenShiftControllerManagerCommand() @pkg/cmd/openshift-controller-manager/cmd.go
+- OpenShiftControllerManager.StartControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
+
+## xxx
+
+- main() @cmd/hypershift/main.go
+
+```go
+func main() {
+	rand.Seed(time.Now().UTC().UnixNano())
+
+	pflag.CommandLine.SetNormalizeFunc(utilflag.WordSepNormalizeFunc)
+	pflag.CommandLine.AddGoFlagSet(goflag.CommandLine)
+
+	logs.InitLogs()
+	defer logs.FlushLogs()
+	defer serviceability.BehaviorOnPanic(os.Getenv("OPENSHIFT_ON_PANIC"), version.Get())()
+	defer serviceability.Profile(os.Getenv("OPENSHIFT_PROFILE")).Stop()
+
+	if len(os.Getenv("GOMAXPROCS")) == 0 {
+		runtime.GOMAXPROCS(runtime.NumCPU())
+	}
+
+	command := NewHyperShiftCommand()
+	if err := command.Execute(); err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+}
+```
+
+- NewHyperShiftCommand @cmd/hypershift/main.go
+
+```go
+func NewHyperShiftCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "hypershift",
+		Short: "Combined server command for OpenShift",
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+			os.Exit(1)
+		},
+	}
+
+	startEtcd, _ := openshift_etcd.NewCommandStartEtcdServer(openshift_etcd.RecommendedStartEtcdServerName, "hypershift", os.Stdout, os.Stderr)
+	startEtcd.Deprecated = "will be removed in 3.10"
+	startEtcd.Hidden = true
+	cmd.AddCommand(startEtcd)
+
+	startOpenShiftAPIServer := openshift_apiserver.NewOpenShiftAPIServerCommand(openshift_apiserver.RecommendedStartAPIServerName, "hypershift", os.Stdout, os.Stderr)
+	cmd.AddCommand(startOpenShiftAPIServer)
+
+	startOpenShiftKubeAPIServer := openshift_kube_apiserver.NewOpenShiftKubeAPIServerServerCommand(openshift_kube_apiserver.RecommendedStartAPIServerName, "hypershift", os.Stdout, os.Stderr)
+	cmd.AddCommand(startOpenShiftKubeAPIServer)
+
+	startOpenShiftControllerManager := openshift_controller_manager.NewOpenShiftControllerManagerCommand(openshift_controller_manager.RecommendedStartControllerManagerName, "hypershift", os.Stdout, os.Stderr)
+	cmd.AddCommand(startOpenShiftControllerManager)
+
+	experimental := openshift_experimental.NewExperimentalCommand(os.Stdout, os.Stderr)
+	cmd.AddCommand(experimental)
+
+	return cmd
+}
+```
+
+- NewOpenShiftControllerManagerCommand() @pkg/cmd/openshift-controller-manager/cmd.go
+
+```go
+func NewOpenShiftControllerManagerCommand(name, basename string, out, errout io.Writer) *cobra.Command {
+	options := &OpenShiftControllerManager{Output: out}
+
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: "Start the OpenShift controllers",
+		Long:  longDescription,
+		Run: func(c *cobra.Command, args []string) {
+			kcmdutil.CheckErr(options.Validate())
+
+			origin.StartProfiler()
+
+			if err := options.StartControllerManager(); err != nil {
+				if kerrors.IsInvalid(err) {
+					if details := err.(*kerrors.StatusError).ErrStatus.Details; details != nil {
+						fmt.Fprintf(errout, "Invalid %s %s\n", details.Kind, details.Name)
+						for _, cause := range details.Causes {
+							fmt.Fprintf(errout, "  %s: %s\n", cause.Field, cause.Message)
+						}
+						os.Exit(255)
+					}
+				}
+				glog.Fatal(err)
+			}
+		},
+	}
+
+	flags := cmd.Flags()
+	// This command only supports reading from config
+	flags.StringVar(&options.ConfigFile, "config", options.ConfigFile, "Location of the master configuration file to run from.")
+	cmd.MarkFlagFilename("config", "yaml", "yml")
+	cmd.MarkFlagRequired("config")
+	flags.StringVar(&options.KubeConfigFile, "kubeconfig", options.KubeConfigFile, "Location of the master configuration file to run from.")
+	cmd.MarkFlagFilename("kubeconfig", "kubeconfig")
+
+	return cmd
+}
+```
+
+- OpenShiftControllerManager.StartControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+
+```go
+// StartAPIServer calls RunAPIServer and then waits forever
+func (o *OpenShiftControllerManager) StartControllerManager() error {
+	if err := o.RunControllerManager(); err != nil {
+		return err
+	}
+
+	go daemon.SdNotify(false, "READY=1")
+	select {}
+}
+```
+
+- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+
+```go
+// RunAPIServer takes the options and starts the etcd server
+func (o *OpenShiftControllerManager) RunControllerManager() error {
+	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
+	if err != nil {
+		return err
+	}
+
+	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
+	if len(validationResults.Warnings) != 0 {
+		for _, warning := range validationResults.Warnings {
+			glog.Warningf("%v", warning)
+		}
+	}
+	if len(validationResults.Errors) != 0 {
+		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
+	}
+
+	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
+	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
+	if err != nil {
+		return err
+	}
+
+	return RunOpenShiftControllerManager(config, clientConfig)
+}
+```
+
+- ConvertMasterConfigToOpenshiftControllerConfig() @pkg/cmd/openshift-controller-manager/conversion.go
+
+```go
+func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfig) *configapi.OpenshiftControllerConfig {
+	// this is the old flag binding logic
+	flagOptions, err := kcmoptions.NewKubeControllerManagerOptions()
+	if err != nil {
+		// coder error
+		panic(err)
+	}
+	flagOptions.GenericComponent.LeaderElection.RetryPeriod = metav1.Duration{Duration: 3 * time.Second}
+	flagFunc := cm.OriginControllerManagerAddFlags(flagOptions)
+	errors := cmdflags.Resolve(input.KubernetesMasterConfig.ControllerArguments, flagFunc)
+	if len(errors) > 0 {
+		// this can't happen since we only run this on configs we have validated
+		panic(errors)
+	}
+
+	// deep copy to make sure no linger references are shared
+	in := input.DeepCopy()
+
+	registryURLs := []string{}
+	if len(in.ImagePolicyConfig.ExternalRegistryHostname) > 0 {
+		registryURLs = append(registryURLs, in.ImagePolicyConfig.ExternalRegistryHostname)
+	}
+	if len(in.ImagePolicyConfig.InternalRegistryHostname) > 0 {
+		registryURLs = append(registryURLs, in.ImagePolicyConfig.InternalRegistryHostname)
+	}
+
+	buildDefaults, err := getBuildDefaults(in.AdmissionConfig.PluginConfig)
+	if err != nil {
+		// this should happen on scrubbed input
+		panic(err)
+	}
+	buildOverrides, err := getBuildOverrides(in.AdmissionConfig.PluginConfig)
+	if err != nil {
+		// this should happen on scrubbed input
+		panic(err)
+	}
+
+	ret := &configapi.OpenshiftControllerConfig{
+		ClientConnectionOverrides: in.MasterClients.OpenShiftLoopbackClientConnectionOverrides,
+		ServingInfo:               &in.ServingInfo,
+		Controllers:               in.ControllerConfig.Controllers,
+		LeaderElection: configapi.LeaderElectionConfig{
+			RetryPeriod:   flagOptions.GenericComponent.LeaderElection.RetryPeriod,
+			RenewDeadline: flagOptions.GenericComponent.LeaderElection.RenewDeadline,
+			LeaseDuration: flagOptions.GenericComponent.LeaderElection.LeaseDuration,
+		},
+		ResourceQuota: configapi.ResourceQuotaControllerConfig{
+			ConcurrentSyncs: flagOptions.ResourceQuotaController.ConcurrentResourceQuotaSyncs,
+			SyncPeriod:      flagOptions.ResourceQuotaController.ResourceQuotaSyncPeriod,
+			MinResyncPeriod: flagOptions.GenericComponent.MinResyncPeriod,
+		},
+		ServiceServingCert: in.ControllerConfig.ServiceServingCert,
+		Deployer: configapi.DeployerControllerConfig{
+			ImageTemplateFormat: in.ImageConfig,
+		},
+		Build: configapi.BuildControllerConfig{
+			ImageTemplateFormat: in.ImageConfig,
+
+			BuildDefaults:  buildDefaults,
+			BuildOverrides: buildOverrides,
+		},
+		ServiceAccount: configapi.ServiceAccountControllerConfig{
+			ManagedNames: in.ServiceAccountConfig.ManagedNames,
+		},
+		DockerPullSecret: configapi.DockerPullSecretControllerConfig{
+			RegistryURLs: registryURLs,
+		},
+		Network: configapi.NetworkControllerConfig{
+			ClusterNetworks:    in.NetworkConfig.ClusterNetworks,
+			NetworkPluginName:  in.NetworkConfig.NetworkPluginName,
+			ServiceNetworkCIDR: in.NetworkConfig.ServiceNetworkCIDR,
+			VXLANPort:          in.NetworkConfig.VXLANPort,
+		},
+		Ingress: configapi.IngressControllerConfig{
+			IngressIPNetworkCIDR: in.NetworkConfig.IngressIPNetworkCIDR,
+		},
+		SecurityAllocator: *in.ProjectConfig.SecurityAllocator,
+		ImageImport: configapi.ImageImportControllerConfig{
+			DisableScheduledImport:                     in.ImagePolicyConfig.DisableScheduledImport,
+			MaxScheduledImageImportsPerMinute:          in.ImagePolicyConfig.MaxScheduledImageImportsPerMinute,
+			ScheduledImageImportMinimumIntervalSeconds: in.ImagePolicyConfig.ScheduledImageImportMinimumIntervalSeconds,
+		},
+	}
+
+	return ret
+}
+```
+
+# xxx
+
+- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+
+```go
+// RunAPIServer takes the options and starts the etcd server
+func (o *OpenShiftControllerManager) RunControllerManager() error {
+	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
+	if err != nil {
+		return err
+	}
+
+	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
+	if len(validationResults.Warnings) != 0 {
+		for _, warning := range validationResults.Warnings {
+			glog.Warningf("%v", warning)
+		}
+	}
+	if len(validationResults.Errors) != 0 {
+		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
+	}
+
+	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
+	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
+	if err != nil {
+		return err
+	}
+
+	return RunOpenShiftControllerManager(config, clientConfig)
+}
+```
+
+- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
+
+```go
+// RunAPIServer takes the options and starts the etcd server
+func (o *OpenShiftControllerManager) RunControllerManager() error {
+	masterConfig, err := configapilatest.ReadAndResolveMasterConfig(o.ConfigFile)
+	if err != nil {
+		return err
+	}
+
+	validationResults := validation.ValidateMasterConfig(masterConfig, nil)
+	if len(validationResults.Warnings) != 0 {
+		for _, warning := range validationResults.Warnings {
+			glog.Warningf("%v", warning)
+		}
+	}
+	if len(validationResults.Errors) != 0 {
+		return kerrors.NewInvalid(configapi.Kind("MasterConfig"), "master-config.yaml", validationResults.Errors)
+	}
+
+	config := ConvertMasterConfigToOpenshiftControllerConfig(masterConfig)
+	clientConfig, err := configapi.GetKubeConfigOrInClusterConfig(o.KubeConfigFile, config.ClientConnectionOverrides)
+	if err != nil {
+		return err
+	}
+
+	return RunOpenShiftControllerManager(config, clientConfig)
+}
+```
+
+# xxx
+
+- transitionToPhase() @pkg/build/controller/build/build_controller.go
+o
+```go
+// transitionToPhase returns a buildUpdate object to transition a build to a new
+// phase with the given reason and message
+func transitionToPhase(phase buildv1.BuildPhase, reason buildv1.StatusReason, message string) *buildUpdate {
+    update := &buildUpdate{}
+    update.setPhase(phase)
+    update.setReason(reason)
+    update.setMessage(message)
+    return update
+}
+```
+
+# call graph
+
+- main() @cmd/openshift/openshift.go
+- CommandFor() @pkg/cmd/openshift/openshift.go
+- NewCommandOpenShift() @pkg/cmd/openshift/openshift.go
+- NewCommandStart() @pkg/cmd/server/start/start.go
+- NewCommandStartMaster() @pkg/cmd/server/start/start\_master.go
+- MasterOptions.StartMaster() @pkg/cmd/server/start/start\_master.go
+- MasterOptions.RunMaster() @pkg/cmd/server/start/start\_master.go
+- Master.Start() @pkg/cmd/server/start/start\_master.go
+- RunOpenShiftControllerManager()
+
+- main() @cmd/hypershift/main.go
+- NewHyperShiftCommand() @cmd/hypershift/main.go
+- NewOpenShiftControllerManagerCommand() @pkg/cmd/openshift-controller-manager/cmd.go
+- OpenShiftControllerManager.StartControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+- OpenShiftControllerManager.RunControllerManager() @pkg/cmd/openshift-controller-manager/cmd.go
+- RunOpenShiftControllerManager() @pkg/cmd/openshift-controller-manager/controller_manager.go
+
+- startControllers() @pkg/cmd/openshift-controller-manager/controller_manager.go
+- ControllerInitializers @pkg/cmd/openshift-controller-manager/controller/config.go
+- RunBuildController() @pkg/cmd/openshift-controller-manager/controller/build.go
+- BuildController.Run() @pkg/build/controller/build/build_controller.go
+- BuildController.buildWorker() @pkg/build/controller/build/build_controller.go
+- BuildController.buildWork() @pkg/build/controller/build/build_controller.go
+- BuildController.handleBuild() @pkg/build/controller/build/build_controller.go
+- BuildController.handleNewBuild() @pkg/build/controller/build/build_controller.go
+- BuildController.createBuildPod() @pkg/build/controller/build/build_controller.go
+- BuildController.createPodSpec() @pkg/build/controller/build/build_controller.go
+- BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
+- BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
+- addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
+- SetBuildEnv() @pkg/build/util/util.go
+
+# a
+
 
 - main() @cmd/hypershift/main.go
 
