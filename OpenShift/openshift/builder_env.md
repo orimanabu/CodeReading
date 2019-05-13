@@ -497,9 +497,9 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 
 `OpenShiftControllerConfig.Build.BuildDefaults` で参照できる。
 
-# その後
+# build Podの起動
 
-Dockerビルドでbuildコンテナが起動するところまでを見る。
+Dockerビルドでbuild Podが起動するところまでを見る。
 
 ```
 main() @cmd/openshift/openshift.go
@@ -540,6 +540,8 @@ Master.start()の後、RunOpenShiftControllerManager()に入る。
 - `buildPodCreationStrategy.CreateBuildPod() @pkg/build/controller/build/defaults/defaults.go` でbuild PodのPod Specを作り、
 - `BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go` でmaster-config.yamlに設定された環境変数を突っ込む
 という流れになる。
+
+## build Podの起動直前まで
 
 まずは `Master.Start() @pkg/cmd/server/start/start_master.go` を再掲。
 
@@ -1086,99 +1088,7 @@ func (bc *BuildController) createPodSpec(build *buildv1.Build) (*corev1.Pod, err
 }
 ```
 
-- BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
-
-```go
-// ApplyDefaults applies configured build defaults to a build pod
-func (b BuildDefaults) ApplyDefaults(pod *corev1.Pod) error {
-    build, err := common.GetBuildFromPod(pod)
-    if err != nil {
-        return nil
-    }
-
-    if b.Config == nil {
-        // even if there's no config for the defaulter, we need to set up the loglevel.
-        return setPodLogLevelFromBuild(pod, build)
-    }
-
-    glog.V(4).Infof("Applying defaults to build %s/%s", build.Namespace, build.Name)
-    b.applyBuildDefaults(build) // XXX HERE
-
-    glog.V(4).Infof("Applying defaults to pod %s/%s", pod.Namespace, pod.Name)
-    b.applyPodDefaults(pod, build.Spec.Strategy.CustomStrategy != nil)
-
-    err = setPodLogLevelFromBuild(pod, build)
-    if err != nil {
-        return err
-    }
-
-    return common.SetBuildInPod(pod, build)
-}
-```
-
-- BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
-
-```go
-func (b BuildDefaults) applyBuildDefaults(build *buildv1.Build) {
-    // Apply default env
-    for _, envVar := range b.Config.Env {
-        glog.V(5).Infof("Adding default environment variable %s=%s to build %s/%s", envVar.Name, envVar.Value, build.Namespace, build.Name)
-        externalEnv := corev1.EnvVar{}
-        if err := legacyscheme.Scheme.Convert(&envVar, &externalEnv, nil); err != nil {
-            panic(err)
-        }
-        addDefaultEnvVar(build, externalEnv) // XXX HERE
-    }
-
-<snip>
-```
-
-- addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
-
-```go
-func addDefaultEnvVar(build *buildv1.Build, v corev1.EnvVar) {
-    envVars := buildutil.GetBuildEnv(build)
-
-    for i := range envVars {
-        if envVars[i].Name == v.Name {
-            return
-        }
-    }
-    envVars = append(envVars, v)
-    buildutil.SetBuildEnv(build, envVars) // XXX HERE
-}
-```
-
-- SetBuildEnv() @pkg/build/util/util.go
-
-```go
-// SetBuildEnv replaces the current build environment
-func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
-    var oldEnv *[]corev1.EnvVar
-
-    switch {
-    case build.Spec.Strategy.SourceStrategy != nil:
-        oldEnv = &build.Spec.Strategy.SourceStrategy.Env
-    case build.Spec.Strategy.DockerStrategy != nil:
-        oldEnv = &build.Spec.Strategy.DockerStrategy.Env
-    case build.Spec.Strategy.CustomStrategy != nil:
-        oldEnv = &build.Spec.Strategy.CustomStrategy.Env
-    case build.Spec.Strategy.JenkinsPipelineStrategy != nil:
-        oldEnv = &build.Spec.Strategy.JenkinsPipelineStrategy.Env
-    default:
-        return
-    }
-    *oldEnv = env
-}
-```
-
-## xxx
-
-- 
-
-```go
-
-```
+## build PodのPod Specの作成
 
 - buildPodCreationStrategy @pkg/build/controller/build/podcreationstrategy.go
 
@@ -1228,6 +1138,8 @@ func (f *typeBasedFactoryStrategy) CreateBuildPod(build *buildv1.Build) (*corev1
     return pod, err
 }
 ```
+
+### Dockerビルド
 
 - DockerBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
 
@@ -1319,6 +1231,8 @@ func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, er
     return pod, nil
 }
 ```
+
+### S2I ビルド
 
 - SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go
 
@@ -1412,7 +1326,100 @@ func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod
 }
 ```
 
+DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `openshift-manage-dockerfile` コマンドを実行している。
+
+## BuildDefaultの環境変数の注入
+
+- BuildDefaults.ApplyDefaults() @pkg/build/controller/build/defaults/defaults.go
+
+```go
+// ApplyDefaults applies configured build defaults to a build pod
+func (b BuildDefaults) ApplyDefaults(pod *corev1.Pod) error {
+    build, err := common.GetBuildFromPod(pod)
+    if err != nil {
+        return nil
+    }
+
+    if b.Config == nil {
+        // even if there's no config for the defaulter, we need to set up the loglevel.
+        return setPodLogLevelFromBuild(pod, build)
+    }
+
+    glog.V(4).Infof("Applying defaults to build %s/%s", build.Namespace, build.Name)
+    b.applyBuildDefaults(build) // XXX HERE
+
+    glog.V(4).Infof("Applying defaults to pod %s/%s", pod.Namespace, pod.Name)
+    b.applyPodDefaults(pod, build.Spec.Strategy.CustomStrategy != nil)
+
+    err = setPodLogLevelFromBuild(pod, build)
+    if err != nil {
+        return err
+    }
+
+    return common.SetBuildInPod(pod, build)
+}
+```
+
+- BuildDefaults.applyBuildDefaults() @pkg/build/controller/build/defaults/defaults.go
+
+```go
+func (b BuildDefaults) applyBuildDefaults(build *buildv1.Build) {
+    // Apply default env
+    for _, envVar := range b.Config.Env {
+        glog.V(5).Infof("Adding default environment variable %s=%s to build %s/%s", envVar.Name, envVar.Value, build.Namespace, build.Name)
+        externalEnv := corev1.EnvVar{}
+        if err := legacyscheme.Scheme.Convert(&envVar, &externalEnv, nil); err != nil {
+            panic(err)
+        }
+        addDefaultEnvVar(build, externalEnv) // XXX HERE
+    }
+
+<snip>
+```
+
+- addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go
+
+```go
+func addDefaultEnvVar(build *buildv1.Build, v corev1.EnvVar) {
+    envVars := buildutil.GetBuildEnv(build)
+
+    for i := range envVars {
+        if envVars[i].Name == v.Name {
+            return
+        }
+    }
+    envVars = append(envVars, v)
+    buildutil.SetBuildEnv(build, envVars) // XXX HERE
+}
+```
+
+- SetBuildEnv() @pkg/build/util/util.go
+
+```go
+// SetBuildEnv replaces the current build environment
+func SetBuildEnv(build *buildv1.Build, env []corev1.EnvVar) {
+    var oldEnv *[]corev1.EnvVar
+
+    switch {
+    case build.Spec.Strategy.SourceStrategy != nil:
+        oldEnv = &build.Spec.Strategy.SourceStrategy.Env
+    case build.Spec.Strategy.DockerStrategy != nil:
+        oldEnv = &build.Spec.Strategy.DockerStrategy.Env
+    case build.Spec.Strategy.CustomStrategy != nil:
+        oldEnv = &build.Spec.Strategy.CustomStrategy.Env
+    case build.Spec.Strategy.JenkinsPipelineStrategy != nil:
+        oldEnv = &build.Spec.Strategy.JenkinsPipelineStrategy.Env
+    default:
+        return
+    }
+    *oldEnv = env
+}
+```
+
 ## openshift-manage-dockerfileコマンド
+
+DockerビルドおよびS2Iビルドにおいて、build Pod起動時、Init Container内で `openshift-manage-dockerfile` コマンドを起動する。
+以下、その処理を見る。
 
 ```
 main() @cmd/oc/oc.go
@@ -1461,7 +1468,7 @@ func main() {
     legacy.InstallInternalLegacyAll(scheme.Scheme)
 
     basename := filepath.Base(os.Args[0])
-    command := cli.CommandFor(basename)
+    command := cli.CommandFor(basename) // XXX HERE
     if err := command.Execute(); err != nil {
         os.Exit(1)
     }
@@ -1497,7 +1504,7 @@ func CommandFor(basename string) *cobra.Command {
     case "openshift-git-clone":
         cmd = builder.NewCommandGitClone(basename)
     case "openshift-manage-dockerfile":
-        cmd = builder.NewCommandManageDockerfile(basename)
+        cmd = builder.NewCommandManageDockerfile(basename) // XXX HERE
     case "openshift-extract-image-content":
         cmd = builder.NewCommandExtractImageContent(basename)
     case "openshift-router":
@@ -1530,7 +1537,7 @@ func NewCommandManageDockerfile(name string) *cobra.Command {
         Short: "Manage a dockerfile for a docker build",
         Long:  manageDockerfileLong,
         Run: func(c *cobra.Command, args []string) {
-            err := cmd.RunManageDockerfile(c.OutOrStderr())
+            err := cmd.RunManageDockerfile(c.OutOrStderr()) // XXX HERE
             kcmdutil.CheckErr(err)
         },
     }
@@ -1568,7 +1575,7 @@ func RunManageDockerfile(out io.Writer) error {
     if err != nil {
         return err
     }
-    return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build)
+    return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build) // XXX HERE
 }
 
 // RunExtractImageContent extracts files from existing images
@@ -1613,7 +1620,7 @@ func ManageDockerfile(dir string, build *buildapiv1.Build) error {
         if err != nil {
             return fmt.Errorf("error reading git source info: %v", err)
         }
-        return addBuildParameters(dir, build, sourceInfo)
+        return addBuildParameters(dir, build, sourceInfo) // XXX HERE
     }
     return nil
 }
@@ -1661,7 +1668,7 @@ func addBuildParameters(dir string, build *buildapiv1.Build, sourceInfo *git.Sou
     }
 
     // Insert environment variables defined in the build strategy.
-    if err := insertEnvAfterFrom(node, build.Spec.Strategy.DockerStrategy.Env); err != nil {
+    if err := insertEnvAfterFrom(node, build.Spec.Strategy.DockerStrategy.Env); err != nil { // XXX HERE
         return err
     }
 
