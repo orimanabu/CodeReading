@@ -548,7 +548,7 @@ func ConvertMasterConfigToOpenshiftControllerConfig(input *configapi.MasterConfi
 
 # build Podの起動
 
-Dockerビルドでbuild Podが起動するところまでを見る。
+Dockerビルドでbuild Podが起動するところまでの処理を追う。
 
 ```
 main() @cmd/openshift/openshift.go
@@ -591,9 +591,11 @@ Controller Managerが起動してから `Master.start()` までは [master-confi
 という流れになる。
 
 以下、
+
 - build Podの起動直前まで
 - build PodのPod Spec作成
 - BuildDefaultで設定したの環境変数の注入
+
 の3段階にわけて見ていく。
 
 ## build Podの起動直前まで
@@ -1217,6 +1219,15 @@ func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, er
         return nil, fmt.Errorf("failed to encode the build: %v", err)
     }
 
+    privileged := true
+    strategy := build.Spec.Strategy.DockerStrategy
+
+    containerEnv := []v1.EnvVar{
+        {Name: "BUILD", Value: string(data)}, // XXX HERE: referred in newBuilderConfigFromEnvironment() @pkg/build/builder/cmd/builder.go
+    }
+
+    addSourceEnvVars(build.Spec.Source, &containerEnv)
+
 <snip>
 
     pod := &v1.Pod{
@@ -1299,7 +1310,7 @@ func (bs *DockerBuildStrategy) CreateBuildPod(build *buildv1.Build) (*v1.Pod, er
 
 ### S2I ビルド
 
-- [SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/strategy/docker.go#L36)
+- [SourceBuildStrategy.CreateBuildPod() @pkg/build/controller/strategy/sti.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/strategy/sti.go#L35)
 
 ```go
 // CreateBuildPod creates a pod that will execute the STI build
@@ -1308,6 +1319,17 @@ func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod
     data, err := runtime.Encode(buildJSONCodec, build)
     if err != nil {
         return nil, fmt.Errorf("failed to encode the Build %s/%s: %v", build.Namespace, build.Name, err)
+    }
+
+    containerEnv := []corev1.EnvVar{
+        {Name: "BUILD", Value: string(data)}, // XXX HERE: referred in newBuilderConfigFromEnvironment() @pkg/build/builder/cmd/builder.go
+    }
+
+    addSourceEnvVars(build.Spec.Source, &containerEnv)
+
+    strategy := build.Spec.Strategy.SourceStrategy
+    if len(strategy.Env) > 0 {
+        buildutil.MergeTrustedEnvWithoutDuplicates(strategy.Env, &containerEnv, true)
     }
 
 <snip>
@@ -1391,11 +1413,11 @@ func (bs *SourceBuildStrategy) CreateBuildPod(build *buildv1.Build) (*corev1.Pod
 }
 ```
 
-DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `openshift-manage-dockerfile` コマンドを実行している。
+DockerビルドにしろS2Iビルドにしろ、build PodのInit Containerで `openshift-manage-dockerfile` コマンドを実行している。が、S2IビルドではDockerfileは使わないので関係ないはず。
 </div>
 </details>
 
-## BuildDefaultで設定したの環境変数の注入
+## BuildDefaultで設定した環境変数のマージ
 
 <details><summary>
 詳細はこちら:
@@ -1446,7 +1468,41 @@ func (b BuildDefaults) applyBuildDefaults(build *buildv1.Build) {
     }
 
 <snip>
+
+    // Apply git proxy defaults
+    if build.Spec.Source.Git == nil {
+        return
+    }
+    if len(b.Config.GitHTTPProxy) != 0 {
+        if build.Spec.Source.Git.HTTPProxy == nil {
+            t := b.Config.GitHTTPProxy
+            glog.V(5).Infof("Setting default Git HTTP proxy of build %s/%s to %s", build.Namespace, build.Name, t)
+            build.Spec.Source.Git.HTTPProxy = &t
+        }
+    }
+
+    if len(b.Config.GitHTTPSProxy) != 0 {
+        if build.Spec.Source.Git.HTTPSProxy == nil {
+            t := b.Config.GitHTTPSProxy
+            glog.V(5).Infof("Setting default Git HTTPS proxy of build %s/%s to %s", build.Namespace, build.Name, t)
+            build.Spec.Source.Git.HTTPSProxy = &t
+        }
+    }
+
+    if len(b.Config.GitNoProxy) != 0 {
+        if build.Spec.Source.Git.NoProxy == nil {
+            t := b.Config.GitNoProxy
+            glog.V(5).Infof("Setting default Git no proxy of build %s/%s to %s", build.Namespace, build.Name, t)
+            build.Spec.Source.Git.NoProxy = &t
+        }
+    }
+
+<snip>
+
+}
 ```
+
+`b.Config.Env` が `admissionConfig.pluginConfig.BuildDefaults.configuration.env` の、`b.Config.Git{No,HTTP{,S}}Proxy` が `admissionConfig.pluginConfig.BuildDefaults.configuration.git{No,HTTP{,S}}Proxy` の値を持つ。
 
 - [addDefaultEnvVar() @pkg/build/controller/build/defaults/defaults.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/controller/build/defaults/defaults.go#L228:6)
 
@@ -1507,7 +1563,7 @@ main() @cmd/oc/oc.go
           └insertEnvAfterFrom() @pkg/build/builder/docker.go
 ```
 
-- main() @cmd/oc/oc.go
+- [main() @cmd/oc/oc.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/cmd/oc/oc.go#L35)
 
 ```go
 func main() {
@@ -1551,7 +1607,7 @@ func main() {
 }
 ```
 
-- CommandFor() @pkg/oc/cli/cli.go
+- [CommandFor() @pkg/oc/cli/cli.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/oc/cli/cli.go#L334)
 
 ```go
 // CommandFor returns the appropriate command for this base name,
@@ -1604,7 +1660,7 @@ func CommandFor(basename string) *cobra.Command {
 }
 ```
 
-- NewCommandManageDockerfile() @pkg/cmd/infra/builder/builder.go
+- [NewCommandManageDockerfile() @pkg/cmd/infra/builder/builder.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/cmd/infra/builder/builder.go#L95:6)
 
 ```go
 func NewCommandManageDockerfile(name string) *cobra.Command {
@@ -1620,23 +1676,9 @@ func NewCommandManageDockerfile(name string) *cobra.Command {
     cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
     return cmd
 }
-
-func NewCommandExtractImageContent(name string) *cobra.Command {
-    cmd := &cobra.Command{
-        Use:   name,
-        Short: "Extract build input content from existing images",
-        Long:  extractImageContentLong,
-        Run: func(c *cobra.Command, args []string) {
-            err := cmd.RunExtractImageContent(c.OutOrStderr())
-            kcmdutil.CheckErr(err)
-        },
-    }
-    cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
-    return cmd
-}
 ```
 
-- RunManageDockerfile() @pkg/build/builder/cmd/builder.go
+- [RunManageDockerfile() @pkg/build/builder/cmd/builder.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/cmd/builder.go#L284:6)
 
 ```go
 // RunManageDockerfile manipulates the dockerfile for docker builds.
@@ -1653,19 +1695,51 @@ func RunManageDockerfile(out io.Writer) error {
     }
     return bld.ManageDockerfile(buildutil.InputContentPath, cfg.build) // XXX HERE
 }
+```
 
-// RunExtractImageContent extracts files from existing images
-// into the build working directory.
-func RunExtractImageContent(out io.Writer) error {
-    cfg, err := newBuilderConfigFromEnvironment(out, true)
+- [newBuilderConfigFromEnvironment() @pkg/build/builder/cmd/builder.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/cmd/builder.go#L57:6)
+
+```go
+func newBuilderConfigFromEnvironment(out io.Writer, needsDocker bool) (*builderConfig, error) {
+    cfg := &builderConfig{}
+    var err error
+
+    cfg.out = out
+
+    buildStr := os.Getenv("BUILD") // XXX HERE
+
+    cfg.build = &buildapiv1.Build{}
+
+    obj, _, err := buildEnvVarJSONCodec.Decode([]byte(buildStr), nil, cfg.build)
     if err != nil {
-        return err
+        return nil, fmt.Errorf("unable to parse build string: %v", err)
     }
-    return cfg.extractImageContent()
+    ok := false
+    cfg.build, ok = obj.(*buildapiv1.Build)
+    if !ok {
+        return nil, fmt.Errorf("build string %s is not a build: %#v", buildStr, obj)
+    }
+
+<snip>
+
+    // buildsClient (KUBERNETES_SERVICE_HOST, KUBERNETES_SERVICE_PORT)
+    clientConfig, err := restclient.InClusterConfig()
+    if err != nil {
+        return nil, fmt.Errorf("cannot connect to the server: %v", err)
+    }
+    buildsClient, err := buildclientv1.NewForConfig(clientConfig)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get client: %v", err)
+    }
+    cfg.buildsClient = buildsClient.Builds(cfg.build.Namespace)
+
+    return cfg, nil
 }
 ```
 
-- ManageDockerfile() @@pkg/build/builder/source.go
+[`buildConfig`](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/cmd/builder.go#L48:6) structのフィールド build ([Build](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/vendor/github.com/openshift/api/build/v1/types.go#L18:6) struct) に `oc get build` 相当の情報が入っている。
+
+- [ManageDockerfile() @@pkg/build/builder/source.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/source.go#L101:6)
 
 ```go
 // ManageDockerfile manipulates the dockerfile for docker builds.
@@ -1702,7 +1776,9 @@ func ManageDockerfile(dir string, build *buildapiv1.Build) error {
 }
 ```
 
-- addBuildParameters() @pkg/build/builder/common.go
+Build Strategyは `build.Spec.Strategy.DockerStrategy` で参照できる。
+
+- [addBuildParameters() @pkg/build/builder/common.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/common.go#L396:6)
 
 ```go
 // addBuildParameters checks if a Image is set to replace the default base image.
@@ -1756,7 +1832,7 @@ func addBuildParameters(dir string, build *buildapiv1.Build, sourceInfo *git.Sou
 }
 ```
 
-- insertEnvAfterFrom() @pkg/build/builder/docker.go
+- [insertEnvAfterFrom() @pkg/build/builder/docker.go](https://github.com/openshift/origin/blob/11bbf5df956be2a16a9c303427aac2055a6aa608/pkg/build/builder/docker.go#L457:6)
 
 ```go
 // insertEnvAfterFrom inserts an ENV instruction with the environment variables
