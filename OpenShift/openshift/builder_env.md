@@ -1868,3 +1868,108 @@ func insertEnvAfterFrom(node *parser.Node, env []corev1.EnvVar) error {
 ```
 </div>
 </details>
+
+# xxx
+
+<details><summary>
+詳細はこちら:
+</summary><div>
+
+- []()
+
+```go
+
+```
+
+- [NewCommandDockerBuilder() @pkg/cmd/infra/builder/builder.go]()
+
+```go
+// NewCommandDockerBuilder provides a CLI handler for Docker build type
+func NewCommandDockerBuilder(name string) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   name,
+		Short: "Run a Docker build",
+		Long:  dockerBuilderLong,
+		Run: func(c *cobra.Command, args []string) {
+			err := cmd.RunDockerBuild(c.OutOrStderr())
+			kcmdutil.CheckErr(err)
+		},
+	}
+	cmd.AddCommand(cmdversion.NewCmdVersion(name, version.Get(), os.Stdout))
+	return cmd
+}
+```
+
+- [RunDockerBuild() @pkg/build/builder/cmd/builder.go]()
+
+```go
+// RunDockerBuild creates a docker builder and runs its build
+func RunDockerBuild(out io.Writer) error {
+	return runBuild(out, dockerBuilder{})
+}
+```
+
+- [runBuild() @pkg/build/builder/cmd/builder.go]()
+
+```go
+func runBuild(out io.Writer, builder builder) error {
+	cfg, err := newBuilderConfigFromEnvironment(out, true)
+	if err != nil {
+		return err
+	}
+	return cfg.execute(builder)
+}
+```
+
+- [builderConfig.execute() @pkg/build/builder/cmd/builder.go]()
+
+```go
+// execute is responsible for running a build
+func (c *builderConfig) execute(b builder) error {
+	cgLimits, err := bld.GetCGroupLimits()
+	if err != nil {
+		return fmt.Errorf("failed to retrieve cgroup limits: %v", err)
+	}
+	glog.V(4).Infof("Running build with cgroup limits: %#v", *cgLimits)
+
+	if err := b.Build(c.dockerClient, c.dockerEndpoint, c.buildsClient, c.build, cgLimits); err != nil {
+		return fmt.Errorf("build error: %v", err)
+	}
+
+	if c.build.Spec.Output.To == nil || len(c.build.Spec.Output.To.Name) == 0 {
+		fmt.Fprintf(c.out, "Build complete, no image push requested\n")
+	}
+
+	return nil
+}
+```
+
+- [dockerBuilder.Build() @pkg/build/builder/cmd/builder.go]()
+
+```go
+type dockerBuilder struct{}
+
+// Build starts a Docker build.
+func (dockerBuilder) Build(dockerClient bld.DockerClient, sock string, buildsClient buildclientv1.BuildInterface, build *buildapiv1.Build, cgLimits *s2iapi.CGroupLimits) error {
+	return bld.NewDockerBuilder(dockerClient, buildsClient, build, cgLimits).Build()
+}
+```
+
+- [NewDockerBuilder() @pkg/build/builder/docker.go]()
+
+```go
+// NewDockerBuilder creates a new instance of DockerBuilder
+func NewDockerBuilder(dockerClient DockerClient, buildsClient buildclientv1.BuildInterface, build *buildapiv1.Build, cgLimits *s2iapi.CGroupLimits) *DockerBuilder {
+	return &DockerBuilder{
+		dockerClient: dockerClient,
+		build:        build,
+		tar:          tar.New(s2ifs.NewFileSystem()),
+		client:       buildsClient,
+		cgLimits:     cgLimits,
+		inputDir:     buildutil.InputContentPath,
+	}
+}
+```
+
+</div>
+</details>
