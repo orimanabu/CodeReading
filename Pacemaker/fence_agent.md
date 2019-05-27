@@ -2,7 +2,7 @@
 
 「Ubuntuで動いていた自作fence agentがRHELのPacemakerだと動かない」との問い合わせがあったので調査。
 
-自作fence agentは、雰囲気としては [http://hg.linux-ha.org/lha-2.1/file/1d5b54f0a2e0/lib/plugins/stonith/external/ipmi](こんな) 感じの、$1にgetinfo-xmlがあるとメタデータを返す、的なシェルスクリプトだった。
+自作fence agentは、雰囲気としては [こんな](http://hg.linux-ha.org/lha-2.1/file/1d5b54f0a2e0/lib/plugins/stonith/external/ipmi) 感じの、$1にgetinfo-xmlがあるとメタデータを返す、的なシェルスクリプトだった。
 以下では便宜上、この形式のfence agentを「Heatbeat形式の自作fence agentスクリプト」と呼ぶ。
 
 結論としては、この手のagentは旧Heatbeatプロジェクトの外部コマンドをforkする形式の呼び出しで利用するfence agentであり、RHEL HA Add-onのPacemakerでは利用できない。
@@ -16,7 +16,7 @@ Pacemakerは複雑な歴史をたどって今に至っている。とても乱�
 - しているうちに今のPacemakerになった。
 
 という感じ、なのか？
-[https://www.slideshare.net/ksk_ha/4linux-ha20110916-9349917](この資料)のp.19-p.21がとても参考になる。
+[この資料](https://www.slideshare.net/ksk_ha/4linux-ha20110916-9349917)のp.19-p.21がとても参考になる。
 
 
 検索するといろいろ情報が出てくるが、書かれた時代とどちらのプロジェクトの話かを念頭に置いて読む必要がある。最低限、
