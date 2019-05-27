@@ -66,7 +66,7 @@ Error: Agent 'custom_stonith' is not installed or does not provide valid metadat
 ```python
     codes.UNABLE_TO_GET_AGENT_METADATA: lambda info:
         (
-            "Agent '{agent}' is not installed or does not provide valid"
+            "Agent '{agent}' is not installed or does not provide valid"  # XXX HERE
             " metadata: {reason}"
         ).format(**info)
     ,
@@ -85,7 +85,7 @@ def unable_to_get_agent_metadata(
     string reason reason of failure
     """
     return ReportItem(
-        report_codes.UNABLE_TO_GET_AGENT_METADATA,
+        report_codes.UNABLE_TO_GET_AGENT_METADATA,  # XXX HERE
         severity,
         info={
             "agent": agent,
@@ -108,7 +108,7 @@ def resource_agent_error_to_report_item(
     if e.__class__ == UnableToGetAgentMetadata:
         if severity == ReportItemSeverity.ERROR and forceable:
             force = report_codes.FORCE_METADATA_ISSUE
-        return reports.unable_to_get_agent_metadata(
+        return reports.unable_to_get_agent_metadata( # XXX HERE
             e.agent, e.message, severity, force
         )
     if e.__class__ == InvalidResourceAgentName:
@@ -138,7 +138,7 @@ def main(argv=None):
     cmd_map = {
         "resource": resource.resource_cmd,
         "cluster": cluster.cluster_cmd,
-        "stonith": stonith.stonith_cmd,
+        "stonith": stonith.stonith_cmd, # XXX HERE
 
 ### <snip>
 
@@ -149,7 +149,7 @@ def main(argv=None):
     # root can run everything directly, also help can be displayed,
     # working on a local file also do not need to run under root
     if (os.getuid() == 0) or (argv and argv[0] == "help") or usefile:
-        cmd_map[command](argv)
+        cmd_map[command](argv) # XXX HERE
         return
 
 ### <snip>
@@ -175,7 +175,7 @@ def stonith_cmd(argv):
         elif sub_cmd == "describe":
             stonith_list_options(lib, argv_next, modifiers)
         elif sub_cmd == "create":
-            stonith_create(lib, argv_next, modifiers)
+            stonith_create(lib, argv_next, modifiers) # XXX HERE
 ### <snip>
 ```
 
@@ -187,7 +187,7 @@ def stonith_create(lib, argv, modifiers):
 ### <snip>
 
     if not modifiers["group"]:
-        lib.stonith.create(
+        lib.stonith.create( # XXX HERE
             stonith_id, stonith_type, parts["op"],
             parts["meta"],
             parts["options"],
@@ -237,7 +237,7 @@ def create(
     bool ensure_disabled is flag that keeps resource in target-role "Stopped"
     mixed wait is flag for controlling waiting for pacemaker iddle mechanism
     """
-    stonith_agent = get_agent(
+    stonith_agent = get_agent( # XXX HERE
         env.report_processor,
         env.cmd_runner(),
         stonith_agent_name,
@@ -254,7 +254,7 @@ def find_valid_stonith_agent_by_name(
     report_processor, runner, name,
     allowed_absent=False, absent_agent_supported=True
 ):
-    return _find_valid_agent_by_name(
+    return _find_valid_agent_by_name( # XXX HERE
         report_processor,
         runner,
         name,
@@ -272,7 +272,7 @@ def _find_valid_agent_by_name(
     absent_agent_supported=True
 ):
     try:
-        return PresentAgentClass(runner, name).validate_metadata()
+        return PresentAgentClass(runner, name).validate_metadata() # XXX HERE
     except (InvalidResourceAgentName, InvalidStonithAgentName) as e:
         raise LibraryError(resource_agent_error_to_report_item(e))
     except UnableToGetAgentMetadata as e:
@@ -305,7 +305,7 @@ class CrmAgent(Agent):
         """
         Validate metadata by attepmt to retrieve it.
         """
-        self._get_metadata()
+        self._get_metadata() # XXX HERE
         return self
 ```
 
@@ -326,7 +326,7 @@ class Agent(object):
             or parse its metadata
         """
         if self._metadata is None:
-            self._metadata = self._parse_metadata(self._load_metadata())
+            self._metadata = self._parse_metadata(self._load_metadata()) # XXX HERE
         return self._metadata
 ```
 
@@ -350,7 +350,7 @@ class CrmAgent(Agent):
         ])
         stdout, stderr, retval = self._runner.run(
             [
-                settings.crm_resource_binary,
+                settings.crm_resource_binary, # XXX HERE
                 "--show-metadata",
                 self._get_full_name(),
             ],
@@ -365,7 +365,9 @@ class CrmAgent(Agent):
 
 # crm_resourceコマンドの調査
 
-`crm_resource --show-metadata` すると、`lrmd_conn->cmds->get_metadata()` が呼び出される。
+事象2の調査。
+
+`crm_resource --show-metadata` を実行すると、`lrmd_conn->cmds->get_metadata()` が呼び出される。
 
 - [main() @tools/crm_resource.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/tools/crm_resource.c#L547-L549)
 
@@ -374,18 +376,18 @@ int
 main(int argc, char **argv)
 {
 
-### <snip>
+// <snip>
 
                 } else if (safe_str_eq("show-metadata", longname)) {
 
-### <snip>
+// <snip>
 
                     if (rc == pcmk_ok) {
-                        rc = lrmd_conn->cmds->get_metadata(lrmd_conn, standard,
+                        rc = lrmd_conn->cmds->get_metadata(lrmd_conn, standard, // XXX HERE
                                                            provider, type,
                                                            &metadata, 0);
 
-### <snip>
+// <snip>
 ```
 
 stonith用の場合、`cmds->get_metadata()` は
@@ -443,7 +445,7 @@ lrmd_api_get_metadata(lrmd_t *lrmd, const char *standard, const char *provider,
                       const char *type, char **output,
                       enum lrmd_call_options options)
 {
-    return lrmd->cmds->get_metadata_params(lrmd, standard, provider, type,
+    return lrmd->cmds->get_metadata_params(lrmd, standard, provider, type, // XXX HERE
                                            output, options, NULL);
 }
 ```
@@ -462,7 +464,7 @@ lrmd_api_get_metadata_params(lrmd_t *lrmd, const char *standard,
 
     if (safe_str_eq(standard, PCMK_RESOURCE_CLASS_STONITH)) {
         lrmd_key_value_freeall(params);
-        return stonith_get_metadata(provider, type, output);
+        return stonith_get_metadata(provider, type, output); // XXX HERE
     }
 
 <snip>
@@ -478,7 +480,7 @@ stonith_get_metadata(const char *provider, const char *type, char **output)
     stonith_t *stonith_api = stonith_api_new();
 
     if(stonith_api) {
-        stonith_api->cmds->metadata(stonith_api, st_opt_sync_call, type, provider, output, 0);
+        stonith_api->cmds->metadata(stonith_api, st_opt_sync_call, type, provider, output, 0); // XXX HERE
         stonith_api->cmds->free(stonith_api);
     }
     if (*output == NULL) {
@@ -488,7 +490,7 @@ stonith_get_metadata(const char *provider, const char *type, char **output)
 }
 ```
 
-`stonith_api->cmds->metadata()` は stonith_api_device_metadata() @lib/fencing/st_client.c を呼び出す。
+`stonith_api->cmds->metadata()` は `stonith_api_device_metadata() @lib/fencing/st_client.c` を呼び出す。
 
 - [stonith_api_new() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L2126)
 
@@ -499,7 +501,7 @@ stonith_api_new(void)
 
 <snip>
 
-    new_stonith->cmds->metadata     = stonith_api_device_metadata;
+    new_stonith->cmds->metadata     = stonith_api_device_metadata; // XXX HERE
 ```
 
 - [stonith_api_device_metadata() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L1005-L1034)
@@ -520,11 +522,11 @@ stonith_api_device_metadata(stonith_t * stonith, int call_options, const char *a
 
     switch (ns) {
         case st_namespace_rhcs:
-            return stonith__rhcs_metadata(agent, timeout, output);
+            return stonith__rhcs_metadata(agent, timeout, output); // XXX HERE
 
 #if HAVE_STONITH_STONITH_H
         case st_namespace_lha:
-            return stonith__lha_metadata(agent, timeout, output);
+            return stonith__lha_metadata(agent, timeout, output); // XXX HERE
 #endif
 
         default:
@@ -539,6 +541,10 @@ stonith_api_device_metadata(stonith_t * stonith, int call_options, const char *a
 ```
 
 このswitch-case文は怪しい。`rhcs` はRed Hat Cluster Suite、`lha` はLinux-HAを想起させる。しかもLinx-HAの方のコードブロックは、マクロ定義によってはifdef的にコンパイルされていない可能性がある。
+
+## `stonith__lha_metadata()`
+
+まずLinux-HA形式のfence agent呼び出し部分を見る。
 
 - [stonith__lha_metadata() @lib/fencing/st_lha.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_lha.c#L152)
 
@@ -557,7 +563,7 @@ stonith__lha_metadata(const char *agent, int timeout, char **output)
                                           "stonith_delete", FALSE);
         st_log_fn = find_library_function(&lha_agents_lib, LHA_STONITH_LIBRARY,
                                           "stonith_set_log", FALSE);
-        st_info_fn = find_library_function(&lha_agents_lib, LHA_STONITH_LIBRARY,
+        st_info_fn = find_library_function(&lha_agents_lib, LHA_STONITH_LIBRARY, // XXX HERE
                                            "stonith_get_info", FALSE);
     }
 
@@ -565,7 +571,7 @@ stonith__lha_metadata(const char *agent, int timeout, char **output)
 
 ```
 
-find_library_function()はdlopen()してライブラリを読み込む系。
+`find_library_function()` はdlopen(3)してライブラリを読み込む系。
 
 - [find_library_function() @lib/common/utils.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/common/utils.c#L1244)
 
@@ -577,7 +583,7 @@ find_library_function(void **handle, const char *lib, const char *fn, gboolean f
     void *a_function;
 
     if (*handle == NULL) {
-        *handle = dlopen(lib, RTLD_LAZY);
+        *handle = dlopen(lib, RTLD_LAZY); // XXX HERE
     }
 
     if (!(*handle)) {
@@ -601,7 +607,7 @@ find_library_function(void **handle, const char *lib, const char *fn, gboolean f
 }
 ```
 
-stonith_get_info()の実装は [cluster-glue](https://github.com/ClusterLabs/cluster-glue) プロジェクトにあった。
+`stonith_get_info()` の実装は [cluster-glue](https://github.com/ClusterLabs/cluster-glue) プロジェクトにあった。
 
 - [stonith_get_info() @lib/stonith/stonith.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/stonith/stonith.c#L321)
 
@@ -612,14 +618,14 @@ stonith_get_info(Stonith* s, int infotype)
         StonithPlugin*  sp = (StonithPlugin*)s;
 
         if (sp && sp->s_ops) {
-                return sp->s_ops->get_info(sp, infotype);
+                return sp->s_ops->get_info(sp, infotype); // XXX HERE
         }
         return NULL;
 
 }
 ```
 
-s_ops->getinf0() の呼び出しは、Heatbeat用シェルスクリプトな形式なので、きっとこれ。
+`s_ops->getinf0()` の呼び出しは、Heatbeat用シェルスクリプトな形式なので、きっとこれ。
 
 - [struct stonith_ops externalOps @lib/plugins/stonith/external.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L57)
 
@@ -627,7 +633,7 @@ s_ops->getinf0() の呼び出しは、Heatbeat用シェルスクリプトな形�
 static struct stonith_ops externalOps ={
         external_new,                   /* Create new STONITH object      */
         external_destroy,               /* Destroy STONITH object         */
-        external_getinfo,               /* Return STONITH info string     */
+        external_getinfo,               /* Return STONITH info string     */ // XXX HERE
         external_get_confignames,       /* Return STONITH info string     */
         external_set_config,            /* Get configuration from NVpairs */
         external_status,                /* Return STONITH device status   */
@@ -666,7 +672,7 @@ external_getinfo(StonithPlugin * s, int reqtype)
                         break;
 
                 case ST_CONF_XML:
-                        op = "getinfo-xml";
+                        op = "getinfo-xml"; // XXX HERE
                         break;
 
                 default:
@@ -678,7 +684,11 @@ external_getinfo(StonithPlugin * s, int reqtype)
 <snip>
 ```
 
+ここで `getinfo-xml` サブコマンドを呼んでいる。
+
 - [external_run_cmd() @lib/plugins/stonith/external.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L703)
+
+最終的に、popen(3)でforkする。
 
 ```c
 /* Run the command with op as command line argument(s) and return the exit
@@ -694,12 +704,14 @@ external_run_cmd(struct pluginDevice *sd, const char *op, char **output)
 
 <snip>
 
-        file = popen(cmd, "r");
+        file = popen(cmd, "r"); // XXX HERE
 
 <snip>
 ```
 
-xxx
+## `stonith__rhcs_metadata()`
+
+次にRed Hat Cluster Suite形式のfence agent呼び出し部分を見る。
 
 - [stonith__rhcs_metadata() @lib/fencing/st_rhcs.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_rhcs.c#L77)
 
@@ -720,14 +732,16 @@ stonith__rhcs_metadata(const char *agent, int timeout, char **output)
     xmlNode *xml = NULL;
     xmlNode *actions = NULL;
     xmlXPathObject *xpathObj = NULL;
-    stonith_action_t *action = stonith_action_create(agent, "metadata", NULL, 0,
+    stonith_action_t *action = stonith_action_create(agent, "metadata", NULL, 0, // XXX HERE
                                                      5, NULL, NULL);
-    int rc = stonith__execute(action);
+    int rc = stonith__execute(action); // XXX HERE
 
 <snip>
 ```
 
 - [stonith_action_create() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L716)
+
+`stonith_action_t` の準備。`action->async` はゼロ初期化されたまま？
 
 ```c
 #define FAILURE_MAX_RETRIES 2
@@ -770,6 +784,8 @@ stonith_action_create(const char *agent,
 
 - [stonith__execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L963)
 
+`stonith_action_t` の実際の呼び出し。
+
 ```c
 /*!
  * \internal
@@ -788,7 +804,7 @@ stonith__execute(stonith_action_t *action)
 
     // Keep trying until success, max retries, or timeout
     do {
-        rc = internal_stonith_action_execute(action);
+        rc = internal_stonith_action_execute(action); // XXX HERE
     } while ((rc != pcmk_ok) && update_remaining_timeout(action));
 
     return rc;
@@ -796,6 +812,8 @@ stonith__execute(stonith_action_t *action)
 ```
 
 - [internal_stonith_action_execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L848)
+
+`svc_action_t` を作って (syncモードで？) 呼び出す。
 
 ```c
 static int
@@ -805,7 +823,7 @@ internal_stonith_action_execute(stonith_action_t * action)
 <snip>
 
     buffer = crm_strdup_printf(RH_STONITH_DIR "/%s", basename(action->agent));
-    svc_action = services_action_create_generic(buffer, NULL);
+    svc_action = services_action_create_generic(buffer, NULL); // XXX HERE
     free(buffer);
 
 <snip>
@@ -823,7 +841,7 @@ internal_stonith_action_execute(stonith_action_t * action)
 
     } else {
         /* sync */
-        if (services_action_sync(svc_action)) {
+        if (services_action_sync(svc_action)) { // XXX HERE
             rc = 0;
             action->rc = svc_action_to_errno(svc_action);
             action->output = svc_action->stdout_data;
@@ -845,6 +863,8 @@ internal_stonith_action_execute(stonith_action_t * action)
 ```
 
 - [services_action_create_generic() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L379)
+
+`svc_action_t` の準備
 
 ```c
 svc_action_t *
@@ -871,6 +891,9 @@ services_action_create_generic(const char *exec, const char *args[])
     return op;
 }
 ```
+
+`svc_action_t` の呼び出し
+
 - [services_action_sync() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1308)
 
 ```c
@@ -894,7 +917,7 @@ services_action_sync(svc_action_t * op)
          * services_action_async() doesn't treat meta-data actions specially, so
          * it will result in an error for classes that don't support the action.
          */
-        rc = action_get_metadata(op);
+        rc = action_get_metadata(op); // XXX HERE
     } else {
         rc = action_exec_helper(op);
     }
@@ -954,7 +977,7 @@ action_get_metadata(svc_action_t *op)
     }
 #endif
 
-    return action_exec_helper(op);
+    return action_exec_helper(op); // XXX HERE
 }
 ```
 
@@ -978,7 +1001,7 @@ action_exec_helper(svc_action_t * op)
         return systemd_unit_exec(op);
 #endif
     } else {
-        return services_os_action_execute(op);
+        return services_os_action_execute(op); // XXX HERE
     }
     /* The 'op' has probably been freed if the execution functions return TRUE
        for the asynchronous 'op'. */
@@ -990,6 +1013,8 @@ action_exec_helper(svc_action_t * op)
 
 - [services_os_action_execute() @lib/services/services_linux.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services_linux.c#L684)
 
+ここでfence agentをfork(2)する。
+
 ```c
 /* For an asynchronous 'op', returns FALSE if 'op' should be free'd by the caller */
 /* For a synchronous 'op', returns FALSE if 'op' fails */
@@ -999,7 +1024,7 @@ services_os_action_execute(svc_action_t * op)
 
 <snip>
 
-    op->pid = fork();
+    op->pid = fork(); // XXX HERE
     switch (op->pid) {
         case -1:
             rc = errno;
@@ -1058,11 +1083,3 @@ services_os_action_execute(svc_action_t * op)
 
 <snip>
 ```
-
-- []()
-
-```c
-
-```
-
-
