@@ -29,6 +29,10 @@ Pacemakerは複雑な歴史をたどって今に至っている。とても乱�
 
 # 事象
 
+Heartbeat形式の自作fence agentスクリプトを使おうとした際、2つの事象が確認された。
+
+## 事象1
+
 Heatbeat形式の自作fence agentスクリプトのファイル名を仮りに `custom_stonith` とする。
 
 これをRHEL上で `pcs stonith create` すると、
@@ -39,10 +43,19 @@ Error: Agent 'custom_stonith' is not installed or does not provide valid metadat
 
 というエラーになる。
 
-また、`crm_resource --show-metadata=stonith'custom_stonith` を実行すると、何も表示されない。
+## 事象2
+
+`crm_resource --show-metadata=stonith:custom_stonith` を実行すると、何も表示されない。
 期待される動きとしては(例えばUbuntu上だと)、リソースのメタデータがXML形式で標準出力に表示される。
 
 # pcsコマンドの調査
+
+まず事象1の調査。
+
+- 該当エラーメッセージはどういう例外が発生したときに表示されるか
+- `pcs stonith create` を実行してからその例外が発生するまで
+
+の順に呼んでいく。
 
 ## エラーメッセージ
 
@@ -109,14 +122,14 @@ def resource_agent_error_to_report_item(
 
 `UnableToGetAgentMetadata` 例外が発生するまでのコールパス。
 
-最終的に、`crm_resource --show-metadata` の呼び出しに失敗している。
+最終的に、`crm_resource --show-metadata` の呼び出しに失敗している。つまり、事象1は事象2と同じであることがわかる。
 
 - [main() @pcs/app.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/app.py#L43)
 
 ```python
 def main(argv=None):
 
-<snip>
+### <snip>
 
     command = argv.pop(0)
     if (command == "-h" or command == "help"):
@@ -127,7 +140,7 @@ def main(argv=None):
         "cluster": cluster.cluster_cmd,
         "stonith": stonith.stonith_cmd,
 
-<snip>
+### <snip>
 
     }
     if command not in cmd_map:
@@ -139,7 +152,7 @@ def main(argv=None):
         cmd_map[command](argv)
         return
 
-<snip>
+### <snip>
 ```
 
 - [stonith_cmd() @pcs/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/stonith.py#L29)
@@ -163,7 +176,7 @@ def stonith_cmd(argv):
             stonith_list_options(lib, argv_next, modifiers)
         elif sub_cmd == "create":
             stonith_create(lib, argv_next, modifiers)
-<snip>
+### <snip>
 ```
 
 - [stonith_create() @pcs/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/stonith.py#L156)
@@ -171,7 +184,7 @@ def stonith_cmd(argv):
 ```python
 def stonith_create(lib, argv, modifiers):
 
-<snip>
+### <snip>
 
     if not modifiers["group"]:
         lib.stonith.create(
@@ -181,7 +194,7 @@ def stonith_create(lib, argv, modifiers):
             **settings
         )
 
-<snip>
+### <snip>
 ```
 
 - [create() @pcs/lib/commands/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/commands/stonith.py#L16)
@@ -189,7 +202,7 @@ def stonith_create(lib, argv, modifiers):
 ```python
 from pcs.lib.resource_agent import find_valid_stonith_agent_by_name as get_agent
 
-<snip>
+### <snip>
 
 def create(
     env, stonith_id, stonith_agent_name,
@@ -231,7 +244,7 @@ def create(
         allow_absent_agent,
     )
 
-<snip>
+### <snip>
 ```
 
 - [find_valid_stonith_agent_by_name() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L311)
@@ -286,7 +299,7 @@ def _find_valid_agent_by_name(
 class CrmAgent(Agent):
     #pylint:disable=abstract-method
 
-<snip>
+### <snip>
 
     def validate_metadata(self):
         """
@@ -304,7 +317,7 @@ class Agent(object):
     Base class for providing convinient access to an agent's metadata
     """
 
-<snip>
+### <snip>
 
     def _get_metadata(self):
         """
@@ -323,7 +336,7 @@ class Agent(object):
 class CrmAgent(Agent):
     #pylint:disable=abstract-method
 
-<snip>
+### <snip>
 
     def _load_metadata(self):
         env_path = ":".join([
@@ -361,18 +374,18 @@ int
 main(int argc, char **argv)
 {
 
-<snip>
+### <snip>
 
                 } else if (safe_str_eq("show-metadata", longname)) {
 
-<snip>
+### <snip>
 
                     if (rc == pcmk_ok) {
                         rc = lrmd_conn->cmds->get_metadata(lrmd_conn, standard,
                                                            provider, type,
                                                            &metadata, 0);
 
-<snip>
+### <snip>
 ```
 
 stonith用の場合、`cmds->get_metadata()` は
