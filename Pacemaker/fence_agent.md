@@ -44,7 +44,311 @@ Error: Agent 'custom_stonith' is not installed or does not provide valid metadat
 
 # pcsコマンドの調査
 
+## エラーメッセージ
 
+該当エラーメッセージは、`UnableToGetAgentMetadata` エラーがraiseされたときに表示される。
+
+- [CODE_TO_MESSAGE_BUILDER_MAP @pcs/cli/common/console_report.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/cli/common/console_report.py#L1039)
+
+```python
+    codes.UNABLE_TO_GET_AGENT_METADATA: lambda info:
+        (
+            "Agent '{agent}' is not installed or does not provide valid"
+            " metadata: {reason}"
+        ).format(**info)
+    ,
+```
+
+- [unable_to_get_agent_metadata() @pcs/lib/reports.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/reports.py#L1948)
+
+```python
+def unable_to_get_agent_metadata(
+    agent, reason, severity=ReportItemSeverity.ERROR, forceable=None
+):
+    """
+    There were some issues trying to get metadata of agent
+
+    string agent agent which metadata were unable to obtain
+    string reason reason of failure
+    """
+    return ReportItem(
+        report_codes.UNABLE_TO_GET_AGENT_METADATA,
+        severity,
+        info={
+            "agent": agent,
+            "reason": reason
+        },
+        forceable=forceable
+    )
+```
+
+- [resource_agent_error_to_report_item() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L979)
+
+```python
+def resource_agent_error_to_report_item(
+    e, severity=ReportItemSeverity.ERROR, forceable=False
+):
+    """
+    Transform ResourceAgentError to ReportItem
+    """
+    force = None
+    if e.__class__ == UnableToGetAgentMetadata:
+        if severity == ReportItemSeverity.ERROR and forceable:
+            force = report_codes.FORCE_METADATA_ISSUE
+        return reports.unable_to_get_agent_metadata(
+            e.agent, e.message, severity, force
+        )
+    if e.__class__ == InvalidResourceAgentName:
+        return reports.invalid_resource_agent_name(e.agent)
+    if e.__class__ == InvalidStonithAgentName:
+        return reports.invalid_stonith_agent_name(e.agent)
+    raise e
+```
+
+## `pcs stonith create` から該当エラーメッセージが表示されるまで
+
+`UnableToGetAgentMetadata` 例外が発生するまでのコールパス。
+
+最終的に、`crm_resource --show-metadata` の呼び出しに失敗している。
+
+- [main() @pcs/app.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/app.py#L43)
+
+```python
+def main(argv=None):
+
+<snip>
+
+    command = argv.pop(0)
+    if (command == "-h" or command == "help"):
+        usage.main()
+        return
+    cmd_map = {
+        "resource": resource.resource_cmd,
+        "cluster": cluster.cluster_cmd,
+        "stonith": stonith.stonith_cmd,
+
+<snip>
+
+    }
+    if command not in cmd_map:
+        usage.main()
+        sys.exit(1)
+    # root can run everything directly, also help can be displayed,
+    # working on a local file also do not need to run under root
+    if (os.getuid() == 0) or (argv and argv[0] == "help") or usefile:
+        cmd_map[command](argv)
+        return
+
+<snip>
+```
+
+- [stonith_cmd() @pcs/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/stonith.py#L29)
+
+```python
+def stonith_cmd(argv):
+    if len(argv) < 1:
+        sub_cmd, argv_next = "show", []
+    else:
+        sub_cmd, argv_next = argv[0], argv[1:]
+
+    lib = utils.get_library_wrapper()
+    modifiers = utils.get_modifiers()
+
+    try:
+        if sub_cmd == "help":
+            usage.stonith([" ".join(argv_next)] if argv_next else [])
+        elif sub_cmd == "list":
+            stonith_list_available(lib, argv_next, modifiers)
+        elif sub_cmd == "describe":
+            stonith_list_options(lib, argv_next, modifiers)
+        elif sub_cmd == "create":
+            stonith_create(lib, argv_next, modifiers)
+<snip>
+```
+
+- [stonith_create() @pcs/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/stonith.py#L156)
+
+```python
+def stonith_create(lib, argv, modifiers):
+
+<snip>
+
+    if not modifiers["group"]:
+        lib.stonith.create(
+            stonith_id, stonith_type, parts["op"],
+            parts["meta"],
+            parts["options"],
+            **settings
+        )
+
+<snip>
+```
+
+- [create() @pcs/lib/commands/stonith.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/commands/stonith.py#L16)
+
+```python
+from pcs.lib.resource_agent import find_valid_stonith_agent_by_name as get_agent
+
+<snip>
+
+def create(
+    env, stonith_id, stonith_agent_name,
+    operations, meta_attributes, instance_attributes,
+    allow_absent_agent=False,
+    allow_invalid_operation=False,
+    allow_invalid_instance_attributes=False,
+    use_default_operations=True,
+    ensure_disabled=False,
+    wait=False,
+):
+    """
+    Create stonith as resource in a cib.
+
+    LibraryEnvironment env provides all for communication with externals
+    string stonith_id is an identifier of stonith resource
+    string stonith_agent_name contains name for the identification of agent
+    list of dict operations contains attributes for each entered operation
+    dict meta_attributes contains attributes for primitive/meta_attributes
+    dict instance_attributes contains attributes for
+        primitive/instance_attributes
+    bool allow_absent_agent is a flag for allowing agent that is not installed
+        in a system
+    bool allow_invalid_operation is a flag for allowing to use operations that
+        are not listed in a stonith agent metadata
+    bool allow_invalid_instance_attributes is a flag for allowing to use
+        instance attributes that are not listed in a stonith agent metadata
+        or for allowing to not use the instance_attributes that are required in
+        stonith agent metadata
+    bool use_default_operations is a flag for stopping stopping of adding
+        default cib operations (specified in a stonith agent)
+    bool ensure_disabled is flag that keeps resource in target-role "Stopped"
+    mixed wait is flag for controlling waiting for pacemaker iddle mechanism
+    """
+    stonith_agent = get_agent(
+        env.report_processor,
+        env.cmd_runner(),
+        stonith_agent_name,
+        allow_absent_agent,
+    )
+
+<snip>
+```
+
+- [find_valid_stonith_agent_by_name() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L311)
+
+```python
+def find_valid_stonith_agent_by_name(
+    report_processor, runner, name,
+    allowed_absent=False, absent_agent_supported=True
+):
+    return _find_valid_agent_by_name(
+        report_processor,
+        runner,
+        name,
+        StonithAgent,
+        AbsentStonithAgent if allowed_absent else None,
+        absent_agent_supported=absent_agent_supported,
+    )
+```
+
+- [_find_valid_agent_by_name() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L324)
+
+```python
+def _find_valid_agent_by_name(
+    report_processor, runner, name, PresentAgentClass, AbsentAgentClass,
+    absent_agent_supported=True
+):
+    try:
+        return PresentAgentClass(runner, name).validate_metadata()
+    except (InvalidResourceAgentName, InvalidStonithAgentName) as e:
+        raise LibraryError(resource_agent_error_to_report_item(e))
+    except UnableToGetAgentMetadata as e:
+        if not absent_agent_supported:
+            raise LibraryError(resource_agent_error_to_report_item(e))
+
+        if not AbsentAgentClass:
+            raise LibraryError(resource_agent_error_to_report_item(
+                    e,
+                    forceable=True
+            ))
+
+        report_processor.process(resource_agent_error_to_report_item(
+            e,
+            severity=ReportItemSeverity.WARNING,
+        ))
+
+        return AbsentAgentClass(runner, name)
+```
+
+- [CrmAgent.validate_metadata() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L725)
+
+```python
+class CrmAgent(Agent):
+    #pylint:disable=abstract-method
+
+<snip>
+
+    def validate_metadata(self):
+        """
+        Validate metadata by attepmt to retrieve it.
+        """
+        self._get_metadata()
+        return self
+```
+
+- [Agent._get_metadata() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L601)
+
+```python
+class Agent(object):
+    """
+    Base class for providing convinient access to an agent's metadata
+    """
+
+<snip>
+
+    def _get_metadata(self):
+        """
+        Return metadata DOM
+        Raise UnableToGetAgentMetadata if agent doesn't exist or unable to get
+            or parse its metadata
+        """
+        if self._metadata is None:
+            self._metadata = self._parse_metadata(self._load_metadata())
+        return self._metadata
+```
+
+- [CrmAgent._load_metadata() @pcs/lib/resource_agent.py](https://github.com/ClusterLabs/pcs/blob/80a4d877e94354f7e23bef0b8729cac9a2e47364/pcs/lib/resource_agent.py#L732)
+
+```python
+class CrmAgent(Agent):
+    #pylint:disable=abstract-method
+
+<snip>
+
+    def _load_metadata(self):
+        env_path = ":".join([
+            # otherwise pacemaker cannot run RHEL fence agents to get their
+            # metadata
+            settings.fence_agent_binaries,
+            # otherwise heartbeat and cluster-glue agents don't work
+            "/bin/",
+            # otherwise heartbeat and cluster-glue agents don't work
+            "/usr/bin/",
+        ])
+        stdout, stderr, retval = self._runner.run(
+            [
+                settings.crm_resource_binary,
+                "--show-metadata",
+                self._get_full_name(),
+            ],
+            env_extend={
+                "PATH": env_path,
+            }
+        )
+        if retval != 0:
+            raise UnableToGetAgentMetadata(self.get_name(), stderr.strip())
+        return stdout.strip()
+```
 
 # crm_resourceコマンドの調査
 
@@ -223,7 +527,7 @@ stonith_api_device_metadata(stonith_t * stonith, int call_options, const char *a
 
 このswitch-case文は怪しい。`rhcs` はRed Hat Cluster Suite、`lha` はLinux-HAを想起させる。しかもLinx-HAの方のコードブロックは、マクロ定義によってはifdef的にコンパイルされていない可能性がある。
 
-- [](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_lha.c#L152)
+- [stonith__lha_metadata() @lib/fencing/st_lha.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_lha.c#L152)
 
 ```c
 int
