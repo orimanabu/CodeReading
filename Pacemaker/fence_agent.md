@@ -50,7 +50,7 @@ Error: Agent 'custom_stonith' is not installed or does not provide valid metadat
 
 `crm_resource --show-metadata` すると、`lrmd_conn->cmds->get_metadata()` が呼び出される。
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/tools/crm_resource.c#L547-L549](main() @tools/crm_resource.c)
+- [main() @tools/crm_resource.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/tools/crm_resource.c#L547-L549)
 
 ```c
 int
@@ -79,7 +79,7 @@ stonith用の場合、`cmds->get_metadata()` は
 
 の順で関数をたどる。
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1873](lrmd_api_new() @lib/lrmd/lrmd_client.c)
+- [lrmd_api_new() @lib/lrmd/lrmd_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1873)
 
 ```c
 lrmd_t *
@@ -118,7 +118,7 @@ lrmd_api_new(void)
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1618](lrmd_api_get_metadata() @lib/lrmd/lrmd_client.c)
+- [lrmd_api_get_metadata() @lib/lrmd/lrmd_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1618)
 
 ```c
 static int
@@ -131,7 +131,7 @@ lrmd_api_get_metadata(lrmd_t *lrmd, const char *standard, const char *provider,
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1627](lrmd_api_get_metadata_params() @lib/lrmd/lrmd_client.c)
+- [lrmd_api_get_metadata_params() @lib/lrmd/lrmd_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1627)
 
 ```c
 static int
@@ -151,7 +151,7 @@ lrmd_api_get_metadata_params(lrmd_t *lrmd, const char *standard,
 <snip>
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1602](stonith_get_metadata() @lib/lrmd/lrmd_client.c)
+- [stonith_get_metadata() @lib/lrmd/lrmd_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/lrmd/lrmd_client.c#L1602)
 
 ```c
 static int
@@ -173,7 +173,7 @@ stonith_get_metadata(const char *provider, const char *type, char **output)
 
 `stonith_api->cmds->metadata()` は stonith_api_device_metadata() @lib/fencing/st_client.c を呼び出す。
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L2126](stonith_api_new() @lib/fencing/st_client.c)
+- [stonith_api_new() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L2126)
 
 ```c
 stonith_t *
@@ -185,7 +185,7 @@ stonith_api_new(void)
     new_stonith->cmds->metadata     = stonith_api_device_metadata;
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L1005-L1034](stonith_api_device_metadata() @lib/fencing/st_client.c)
+- [stonith_api_device_metadata() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L1005-L1034)
 
 ```c
 static int
@@ -223,7 +223,7 @@ stonith_api_device_metadata(stonith_t * stonith, int call_options, const char *a
 
 このswitch-case文は怪しい。`rhcs` はRed Hat Cluster Suite、`lha` はLinux-HAを想起させる。しかもLinx-HAの方のコードブロックは、マクロ定義によってはifdef的にコンパイルされていない可能性がある。
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_lha.c#L152]()
+- [](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_lha.c#L152)
 
 ```c
 int
@@ -250,7 +250,7 @@ stonith__lha_metadata(const char *agent, int timeout, char **output)
 
 find_library_function()はdlopen()してライブラリを読み込む系。
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/common/utils.c#L1244](find_library_function() @lib/common/utils.c)
+- [find_library_function() @lib/common/utils.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/common/utils.c#L1244)
 
 ```c
 void *
@@ -284,9 +284,9 @@ find_library_function(void **handle, const char *lib, const char *fn, gboolean f
 }
 ```
 
-stonith_get_info()の実装は [https://github.com/ClusterLabs/cluster-glue](cluster-glue) プロジェクトにあった。
+stonith_get_info()の実装は [cluster-glue](https://github.com/ClusterLabs/cluster-glue) プロジェクトにあった。
 
-- [https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/stonith/stonith.c#L321](stonith_get_info() @lib/stonith/stonith.c)
+- [stonith_get_info() @lib/stonith/stonith.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/stonith/stonith.c#L321)
 
 ```c
 const char*
@@ -304,7 +304,7 @@ stonith_get_info(Stonith* s, int infotype)
 
 s_ops->getinf0() の呼び出しは、Heatbeat用シェルスクリプトな形式なので、きっとこれ。
 
-- [https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L57](struct stonith_ops externalOps @lib/plugins/stonith/external.c)
+- [struct stonith_ops externalOps @lib/plugins/stonith/external.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L57)
 
 ```c
 static struct stonith_ops externalOps ={
@@ -319,7 +319,7 @@ static struct stonith_ops externalOps ={
 };
 ```
 
-- [https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L553](external_getinfo() @lib/plugins/stonith/external.c)
+- [external_getinfo() @lib/plugins/stonith/external.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L553)
 
 ```c
 /*
@@ -361,7 +361,7 @@ external_getinfo(StonithPlugin * s, int reqtype)
 <snip>
 ```
 
-- [https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L703](external_run_cmd() @lib/plugins/stonith/external.c)
+- [external_run_cmd() @lib/plugins/stonith/external.c](https://github.com/ClusterLabs/cluster-glue/blob/be86a9f22546e7d765b71ec0faebdabcc3a7c988/lib/plugins/stonith/external.c#L703)
 
 ```c
 /* Run the command with op as command line argument(s) and return the exit
@@ -384,7 +384,7 @@ external_run_cmd(struct pluginDevice *sd, const char *op, char **output)
 
 xxx
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_rhcs.c#L77](stonith__rhcs_metadata() @lib/fencing/st_rhcs.c)
+- [stonith__rhcs_metadata() @lib/fencing/st_rhcs.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_rhcs.c#L77)
 
 ```c
 /*!
@@ -410,7 +410,7 @@ stonith__rhcs_metadata(const char *agent, int timeout, char **output)
 <snip>
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L716](stonith_action_create() @lib/fencing/st_client.c)
+- [stonith_action_create() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L716)
 
 ```c
 #define FAILURE_MAX_RETRIES 2
@@ -451,7 +451,7 @@ stonith_action_create(const char *agent,
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L963](stonith__execute() @lib/fencing/st_client.c)
+- [stonith__execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L963)
 
 ```c
 /*!
@@ -478,7 +478,7 @@ stonith__execute(stonith_action_t *action)
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L848](internal_stonith_action_execute() @lib/fencing/st_client.c)
+- [internal_stonith_action_execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L848)
 
 ```c
 static int
@@ -527,7 +527,7 @@ internal_stonith_action_execute(stonith_action_t * action)
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L379](services_action_create_generic() @lib/services/services.c)
+- [services_action_create_generic() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L379)
 
 ```c
 svc_action_t *
@@ -554,7 +554,7 @@ services_action_create_generic(const char *exec, const char *args[])
     return op;
 }
 ```
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1308](services_action_sync() @lib/services/services.c)
+- [services_action_sync() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1308)
 
 ```c
 gboolean
@@ -592,7 +592,7 @@ services_action_sync(svc_action_t * op)
     return rc;
 }
 ```
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1263](action_get_metadata() @lib/services/services.c)
+- [action_get_metadata() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1263)
 
 ```c
 static gboolean
@@ -641,7 +641,7 @@ action_get_metadata(svc_action_t *op)
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L752](action_exec_helper() @lib/services/services.c)
+- [action_exec_helper() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L752)
 
 最終的にここでfork(2)する。
 
@@ -671,7 +671,7 @@ action_exec_helper(svc_action_t * op)
 }
 ```
 
-- [https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services_linux.c#L684](services_os_action_execute() @lib/services/services_linux.c)
+- [services_os_action_execute() @lib/services/services_linux.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services_linux.c#L684)
 
 ```c
 /* For an asynchronous 'op', returns FALSE if 'op' should be free'd by the caller */
