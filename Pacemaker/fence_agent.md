@@ -755,7 +755,7 @@ stonith_action_create(const char *agent,
     stonith_action_t *action;
 
     action = calloc(1, sizeof(stonith_action_t));
-    action->args = make_args(agent, _action, victim, victim_nodeid, device_args, port_map);
+    action->args = make_args(agent, _action, victim, victim_nodeid, device_args, port_map); // XXX HERE
     crm_debug("Preparing '%s' action for %s using agent %s",
               _action, (victim? victim : "no target"), agent);
     action->agent = strdup(agent);
@@ -781,6 +781,75 @@ stonith_action_create(const char *agent,
     return action;
 }
 ```
+
+後で使うので、`make_args()` の先をちょっと先まで見ておく。
+
+- [make_args() @lib/fencing/st_client.c]()
+
+```c
+static GHashTable *
+make_args(const char *agent, const char *action, const char *victim, uint32_t victim_nodeid, GHashTable * device_args,
+          GHashTable * port_map)
+{
+    char buffer[512];
+    GHashTable *arg_list = NULL;
+    const char *value = NULL;
+
+// <snip>
+
+    append_arg(STONITH_ATTR_ACTION_OP, action, &arg_list); // XXX HERE
+
+// <snip>
+
+    return arg_list;
+}
+```
+
+`STONITH_ATTR_ACTION_OP` は `include/crm/fencing/internal.h` で定義されている。
+
+- [STONITH_ATTR_ACTION_OP @include/crm/fencing/internal.h]()
+
+```c
+#  define STONITH_ATTR_ACTION_OP   "action"
+```
+
+- [append_arg() @lib/fencing/st_client.c]()
+
+```c
+static void
+append_arg(const char *key, const char *value, GHashTable **args)
+{
+    CRM_CHECK(key != NULL, return);
+    CRM_CHECK(value != NULL, return);
+    CRM_CHECK(args != NULL, return);
+
+    if (strstr(key, "pcmk_")) {
+        return;
+    } else if (strstr(key, CRM_META)) {
+        return;
+    } else if (safe_str_eq(key, "crm_feature_set")) {
+        return;
+    }
+
+    if (!*args) {
+        *args = crm_str_table_new();
+    }
+
+    CRM_CHECK(*args != NULL, return);
+    crm_trace("Appending: %s=%s", key, value);
+    g_hash_table_replace(*args, strdup(key), strdup(value)); // XXX HERE
+}
+```
+
+というわけで、最終的に `GHashTable` に 
+
+- key: "action"
+- value: "metadata"
+
+という値が入る。
+
+結論を先に書いておくと、RHEL HA Add-onのPacemakerは、fence agentに対して `custom_agent --action metadata` と実行するとメタデータを標準出力に出すことを期待している。
+この long option 名がハッシュのキーに、long option の引数がハッシュの値に対応している。
 
 - [stonith__execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L963)
 
@@ -813,7 +882,7 @@ stonith__execute(stonith_action_t *action)
 
 - [internal_stonith_action_execute() @lib/fencing/st_client.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/fencing/st_client.c#L848)
 
-`svc_action_t` を作って (syncモードで？) 呼び出す。
+`svc_action_t` を作って (syncモードで？) 呼び出す。`svc_action->params` に `action->args` (前出の key:"action", value:"metadata" のハッシュ) が入る。
 
 ```c
 static int
@@ -825,6 +894,14 @@ internal_stonith_action_execute(stonith_action_t * action)
     buffer = crm_strdup_printf(RH_STONITH_DIR "/%s", basename(action->agent));
     svc_action = services_action_create_generic(buffer, NULL); // XXX HERE
     free(buffer);
+    svc_action->timeout = 1000 * action->remaining_timeout;
+    svc_action->standard = strdup(PCMK_RESOURCE_CLASS_STONITH);
+    svc_action->id = crm_strdup_printf("%s_%s_%d", basename(action->agent),
+                                       action->action, action->tries);
+    svc_action->agent = strdup(action->agent);
+    svc_action->sequence = stonith_sequence++;
+    svc_action->params = action->args; // XXX HERE
+    svc_action->cb_data = (void *) action;
 
 <snip>
 
@@ -932,58 +1009,8 @@ services_action_sync(svc_action_t * op)
     return rc;
 }
 ```
-- [action_get_metadata() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L1263)
-
-```c
-static gboolean
-action_get_metadata(svc_action_t *op)
-{
-    const char *class = op->standard;
-
-    if (op->agent == NULL) {
-        crm_err("meta-data requested without specifying agent");
-        return FALSE;
-    }
-
-    if (class == NULL) {
-        crm_err("meta-data requested for agent %s without specifying class",
-                op->agent);
-        return FALSE;
-    }
-
-    if (!strcmp(class, PCMK_RESOURCE_CLASS_SERVICE)) {
-        class = resources_find_service_class(op->agent);
-    }
-
-    if (class == NULL) {
-        crm_err("meta-data requested for %s, but could not determine class",
-                op->agent);
-        return FALSE;
-    }
-
-    if (safe_str_eq(class, PCMK_RESOURCE_CLASS_LSB)) {
-        return (lsb_get_metadata(op->agent, &op->stdout_data) >= 0);
-    }
-
-#if SUPPORT_NAGIOS
-    if (safe_str_eq(class, PCMK_RESOURCE_CLASS_NAGIOS)) {
-        return (nagios_get_metadata(op->agent, &op->stdout_data) >= 0);
-    }
-#endif
-
-#if SUPPORT_HEARTBEAT
-    if (safe_str_eq(class, PCMK_RESOURCE_CLASS_HB)) {
-        return (heartbeat_get_metadata(op->agent, &op->stdout_data) >= 0);
-    }
-#endif
-
-    return action_exec_helper(op); // XXX HERE
-}
-```
 
 - [action_exec_helper() @lib/services/services.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services.c#L752)
-
-最終的にここでfork(2)する。
 
 ```c
 inline static gboolean
@@ -1013,7 +1040,13 @@ action_exec_helper(svc_action_t * op)
 
 - [services_os_action_execute() @lib/services/services_linux.c](https://github.com/ClusterLabs/pacemaker/blob/1c4d8526de57cdcb0934a02e091bb8292130f9ce/lib/services/services_linux.c#L684)
 
-ここでfence agentをfork(2)する。
+ここでfence agentをfork(2) & execvp(3)する。
+
+- stonith resourceの場合は、fork前に、stdinに接続する用のパイプを用意しておく
+- fork & execした後、用意したパイプ経由で、子プロセス(fence agent)に対して "action=metadata" という文字列を送る
+
+というのがポイント。パイプに送る文字列は、前出のGHashTableにつっこんでいたkeyとvalue。
+これにより、fence agentは `custom_fence --action metadata` というコマンドラインオプションを付けたときと同じように実行される。
 
 ```c
 /* For an asynchronous 'op', returns FALSE if 'op' should be free'd by the caller */
@@ -1021,6 +1054,27 @@ action_exec_helper(svc_action_t * op)
 gboolean
 services_os_action_execute(svc_action_t * op)
 {
+
+<snip>
+
+    if (safe_str_eq(op->standard, PCMK_RESOURCE_CLASS_STONITH)) {
+        if (pipe(stdin_fd) < 0) { // XXX HERE
+            rc = errno;
+
+            close(stdout_fd[0]);
+            close(stdout_fd[1]);
+            close(stderr_fd[0]);
+            close(stderr_fd[1]);
+
+            crm_err("pipe(stdin_fd) failed. '%s': %s (%d)", op->opaque->exec, pcmk_strerror(rc), rc);
+
+            services_handle_exec_error(op, rc);
+            if (!op->synchronous) {
+                return operation_finalize(op);
+            }
+            return FALSE;
+        }
+    }
 
 <snip>
 
@@ -1077,9 +1131,170 @@ services_os_action_execute(svc_action_t * op)
                 sigchld_cleanup();
             }
 
-            action_launch_child(op);
+            action_launch_child(op); // XXX HERE
             CRM_ASSERT(0);  /* action_launch_child is effectively noreturn */
+    }
+
+    /* Only the parent reaches here */
+
+<snip>
+
+    op->opaque->stdin_fd = stdin_fd[1];
+    if (op->opaque->stdin_fd >= 0) {
+        // using buffer behind non-blocking-fd here - that could be improved
+        // as long as no other standard uses stdin_fd assume stonith
+        rc = crm_set_nonblocking(op->opaque->stdin_fd);
+        if (rc < 0) {
+            crm_warn("Could not set child input non-blocking: %s "
+                    CRM_XS " fd=%d,rc=%d",
+                    pcmk_strerror(rc), op->opaque->stdin_fd, rc);
+        }
+        pipe_in_action_stdin_parameters(op); // XXX HERE
+        // as long as we are handling parameters directly in here just close
+        close(op->opaque->stdin_fd);
+        op->opaque->stdin_fd = -1;
     }
 
 <snip>
 ```
+
+先にfork後にexecしているところを確認しておく。
+
+- [action_launch_child() @lib/services/services_linux.c]()
+
+```c
+static void
+action_launch_child(svc_action_t *op)
+{
+
+// <snip>
+
+    /* execute the RA */
+    execvp(op->opaque->exec, op->opaque->args); // XXX HERE
+
+    /* Most cases should have been already handled by stat() */
+    services_handle_exec_error(op, errno);
+
+    _exit(op->rc);
+}
+```
+
+以下、親プロセスからパイプ経由で "key=value" を送っているところ。
+
+- [pipe_in_action_stdin_parameters() @lib/services/services_linux.c]()
+
+```c
+/*!
+ * \internal
+ * \brief Pipe parameters in via stdin for action
+ *
+ * \param[in] op  Action to use
+ */
+static void
+pipe_in_action_stdin_parameters(const svc_action_t *op)
+{
+    crm_debug("sending args");
+    if (op->params) {
+        g_hash_table_foreach(op->params, pipe_in_single_parameter, (gpointer) op);
+    }
+}
+```
+
+- [pipe_in_single_parameter() @lib/services/services_linux.c]()
+
+```c
+static void
+pipe_in_single_parameter(gpointer key, gpointer value, gpointer user_data)
+{
+    svc_action_t *op = user_data;
+    char *buffer = crm_strdup_printf("%s=%s\n", (char *)key, (char *) value);
+    int ret, total = 0, len = strlen(buffer);
+
+    do {
+        errno = 0;
+        ret = write(op->opaque->stdin_fd, buffer + total, len - total);
+        if (ret > 0) {
+            total += ret;
+        }
+
+    } while ((errno == EINTR) && (total < len));
+    free(buffer);
+}
+```
+
+fence agentは 
+
+```
+custom_stonith --action metadata
+```
+
+もしくは
+
+```
+echo 'action=metadata' | custom_stonith
+```
+
+のように実行するとメタデータを返す必要がある。
+
+# xxx
+
+fence agentには `GHashTable *params` をstdinから渡す。
+
+- [svc_actoin_t @./include/crm/services.h]()
+
+```c
+typedef struct svc_action_s {
+    char *id;
+    char *rsc;
+    char *action;
+    int interval;
+
+    char *standard;
+    char *provider;
+    char *agent;
+
+    int timeout;
+    GHashTable *params; /* used for setting up environment for ocf-ra &
+                           alert agents
+                           and to be sent via stdin for fence-agents
+                         */
+
+    int rc;
+    int pid;
+    int cancel;
+    int status;
+    int sequence;
+    int expected_rc;
+    int synchronous;
+    enum svc_action_flags flags;
+
+    char *stderr_data;
+    char *stdout_data;
+
+    /*!
+     * Data stored by the creator of the action.
+     *
+     * This may be used to hold data that is needed later on by a callback,
+     * for example.
+     */
+    void *cb_data;
+
+    svc_action_private_t *opaque;
+} svc_action_t;
+```
+
+
+- []()
+
+```c
+
+```
+
+
+- []()
+
+```c
+
+```
+
+
