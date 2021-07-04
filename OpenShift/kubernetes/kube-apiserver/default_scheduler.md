@@ -300,11 +300,16 @@ type SchedulerPolicyConfigMapSource struct {
 }
 ```
 
-### `configurator.createFromProvider(*source.Provider)` の中
+## `configurator.createFromProvider(*source.Provider)` の中
 
 `*source.Provider = "DefaultProvider"`
 
-- createFromProvider() @pkg/scheduler/factory.go
+1. `scheduler.Configurator.createFromProvider()`
+1. `algorithmprovider.NewRegistry()`
+1. `algorithmprovider.getDefaultConfig()`
+1. `algorithmprovider.applyFeatureGates()`
+
+- scheduler.Configurator.createFromProvider() @pkg/scheduler/factory.go
 
 ```go
 // createFromProvider creates a scheduler from the name of a registered algorithm provider.
@@ -327,7 +332,7 @@ func (c *Configurator) createFromProvider(providerName string) (*Scheduler, erro
 }
 ```
 
-- NewRegistry() @pkg/scheduler/algorithmprovider/registry.go
+- algorithmprovider.NewRegistry() @pkg/scheduler/algorithmprovider/registry.go
 
 ```go
 // Registry is a collection of all available algorithm providers.
@@ -348,7 +353,7 @@ func NewRegistry() Registry {
 }
 ```
 
-- getDefaultConfig() @pkg/scheduler/algorithmprovider/registry.go
+- algorithmprovider.getDefaultConfig() @pkg/scheduler/algorithmprovider/registry.go
 
 ```go
 func getDefaultConfig() *schedulerapi.Plugins {
@@ -413,7 +418,7 @@ func getDefaultConfig() *schedulerapi.Plugins {
 
 ```
 
-- applyFeatureGates() @pkg/scheduler/algorithmprovider/registry.go
+- algorithmprovider.applyFeatureGates() @pkg/scheduler/algorithmprovider/registry.go
 
 ```go
 func applyFeatureGates(config *schedulerapi.Plugins) {
