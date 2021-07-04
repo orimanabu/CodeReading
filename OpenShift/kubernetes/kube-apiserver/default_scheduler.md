@@ -2,10 +2,49 @@
 
 kube-apiserverのデフォルトのスケジューラ設定を追う
 
-## environment
+## Environment
 - OpenShift v4.7 (https://github.com/openshift/kubernetes/tree/oc-4.7-kubernetes-1.20.1)
 
 # Code Reading
+
+## 起動オプション
+
+```sh
+watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration=135s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP}  -v=2
+```
+`config.yaml` はmasterノードの `/etc/kubernetes/static-pod-resources/kube-apiserver-pod-*/configmaps/config/config.yaml` をhostPathでマウントしている。
+
+```yaml
+    volumeMounts:
+    - mountPath: /etc/kubernetes/static-pod-resources
+      name: resource-dir
+
+<snip>
+
+  volumes:
+  - hostPath:
+      path: /etc/kubernetes/static-pod-resources/kube-apiserver-pod-10
+      type: ""
+    name: resource-dir
+```
+
+config.yamlは拡張子がyamlなのに中身はjson...なのは置いておいて、スケジューラ設定に関する設定は入ってなさそう。
+
+念のためfeature-gatesをメモしておく。
+
+```sh
+$ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resources/kube-apiserver-pod-10/configmaps/config/config.yaml 
+[
+  "APIPriorityAndFairness=true",
+  "RotateKubeletServerCertificate=true",
+  "SupportPodPidsLimit=true",
+  "NodeDisruptionExclusion=true",
+  "ServiceNodeExclusion=true",
+  "SCTPSupport=true",
+  "LegacyNodeRoleBehavior=false",
+  "RemoveSelfLink=false"
+]
+```
 
 ## `scheduler.New()` が呼ばれるまで
 
