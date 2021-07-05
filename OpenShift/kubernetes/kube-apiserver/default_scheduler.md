@@ -336,7 +336,8 @@ const (
 <details>
 <summary>SchedulerAlgorithmSource.Policy</summary>
 
-<details style="margin-left:2cm;">
+<div style="margin:30px; padding:20px;">
+<details>
 <summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicySource @pkg/scheduler/apis/config/types.go
@@ -351,6 +352,8 @@ type SchedulerPolicySource struct {
         ConfigMap *SchedulerPolicyConfigMapSource
 }
 ```
+</details>
+</div>
 </details>
 
 <details>
@@ -383,7 +386,6 @@ type SchedulerPolicyConfigMapSource struct {
         Name string
 }
 ```
-</details>
 </details>
 
 ## `configurator.createFromProvider(*source.Provider)` の中
