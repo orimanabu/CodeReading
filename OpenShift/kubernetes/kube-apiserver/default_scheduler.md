@@ -333,10 +333,10 @@ const (
 
 ### その他の登場人物 (直接は関係ない)
 一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
-<div style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">
-</div>
 <details>
-<summary><span style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">SchedulerAlgorithmSource.Policy</span></summary>
+<summary>SchedulerAlgorithmSource.Policy</summary>
+
+---
 
 <details>
 <summary>    SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
@@ -353,7 +353,6 @@ type SchedulerPolicySource struct {
         ConfigMap *SchedulerPolicyConfigMapSource
 }
 ```
-</details>
 </details>
 
 <details>
@@ -386,6 +385,10 @@ type SchedulerPolicyConfigMapSource struct {
         Name string
 }
 ```
+</details>
+
+---
+
 </details>
 
 ## `configurator.createFromProvider(*source.Provider)` の中
