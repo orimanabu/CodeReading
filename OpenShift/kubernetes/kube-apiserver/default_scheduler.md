@@ -427,8 +427,11 @@ func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
 
 それぞれの `scheduler.WithXXXXX()` について `defaultSchedulerOptions` を引数に渡して実行する。
 
+`schedulerapi.SchedulerAlgorithmSource` が `"{Provider: DefaultProvider}"` なところ:
+
 <details>
-<summary>defaultSchedulerOptionsは `type schedulerOptions struct` @pkg/scheduler/scheduler.go</summary>
+<summary>`schedulerapi.SchedulerAlgorithmSource` が `"{Provider: DefaultProvider}"` なところ:</summary>
+
 - scheduler.defaultSchedulerOptions @pkg/scheduler/scheduler.go
 
 ```go
@@ -466,10 +469,6 @@ type schedulerOptions struct {
         frameworkCapturer          FrameworkCapturer
 }
 ```
-</details>
-
-<details>
-<summary>`schedulerapi.SchedulerAlgorithmSource struct` の定義 @pkg/scheduler/apis/config/types.go</summary>
 
 - schedulerapi.SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go
 
@@ -483,10 +482,6 @@ type SchedulerAlgorithmSource struct {
         Provider *string
 }
 ```
-</details>
-
-<details>
-<summary>`defaultAlgorithmSourceProviderName()` は `"DefaultProvider"` を返す @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.defaultAlgorithmSourceProviderName() @pkg/scheduler/scheduler.go
 
