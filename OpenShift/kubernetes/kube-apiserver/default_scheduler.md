@@ -153,7 +153,7 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 
 4. `app.Setup()`
 
-<details>
+<details open>
 <summary>app.Setup() @cmd/kube-scheduler/app/server.go</summary>
 
 - app.Setup() @cmd/kube-scheduler/app/server.go
@@ -161,6 +161,16 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 ```go
 // Setup creates a completed config and a scheduler based on the command args and options
 func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions ...Option) (*schedulerserverconfig.CompletedConfig, *scheduler.Scheduler, error) {
+
+<snip>
+
+        c, err := opts.Config()
+        if err != nil {
+                return nil, nil, err
+        }
+
+        // Get the completed config
+        cc := c.Complete()
 
 <snip>
 
@@ -186,9 +196,67 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 ```
 </details>
 
-5. `scheduler.New()`
+この中で `scheduler.New()` を呼ぶ。
 
+XXX: `cc := c.Complete()` の辺りは後で書く。`type Config struct` @cmd/kube-scheduler/app/config/config.go の中を埋めている
 
+<details>
+<summary>`completeConfig`, `CompleteConfig` 辺りのもったいぶった書き方のココロがよくわかってない</summary>
+
+- type Config struct @cmd/kube-scheduler/app/config/config.go
+
+```go
+// Config has all the context to run a Scheduler
+type Config struct {
+        // ComponentConfig is the scheduler server's configuration object.
+        ComponentConfig kubeschedulerconfig.KubeSchedulerConfiguration
+
+        // LoopbackClientConfig is a config for a privileged loopback connection
+        LoopbackClientConfig *restclient.Config
+
+        InsecureServing        *apiserver.DeprecatedInsecureServingInfo // nil will disable serving on an insecure port
+        InsecureMetricsServing *apiserver.DeprecatedInsecureServingInfo // non-nil if metrics should be served independently                                                                                                                  
+        Authentication         apiserver.AuthenticationInfo 
+        Authorization          apiserver.AuthorizationInfo
+        SecureServing          *apiserver.SecureServingInfo
+
+        Client          clientset.Interface
+        InformerFactory informers.SharedInformerFactory
+
+        //lint:ignore SA1019 this deprecated field still needs to be used for now. It will be removed once the migration is done.
+        EventBroadcaster events.EventBroadcasterAdapter
+
+        // LeaderElection is optional.
+        LeaderElection *leaderelection.LeaderElectionConfig
+}
+
+type completedConfig struct {
+        *Config
+}
+
+// CompletedConfig same as Config, just to swap private object.
+type CompletedConfig struct {
+        // Embed a private pointer that cannot be instantiated outside of this package.
+        *completedConfig
+}
+
+// Complete fills in any fields not set that are required to have valid data. It's mutating the receiver.
+func (c *Config) Complete() CompletedConfig {
+        cc := completedConfig{c}
+
+        if c.InsecureServing != nil {
+                c.InsecureServing.Name = "healthz"
+        }
+        if c.InsecureMetricsServing != nil {
+                c.InsecureMetricsServing.Name = "metrics"
+        }
+
+        apiserver.AuthorizeClientBearerToken(c.LoopbackClientConfig, &c.Authentication, &c.Authorization)
+
+        return CompletedConfig{&cc}
+}
+```
+</details>
 
 # `scheduler.New()` の中
 
@@ -233,7 +301,7 @@ var defaultSchedulerOptions = schedulerOptions{
 }
 ```
 
-呼び出し元から、optsはこんな「関数を返す関数」のリスト。
+呼び出し元から、optsはこんな感じ、それぞれ「関数を返す関数」の返ってきた関数 (表現が難しい)。それぞれ、schedulerOptionsの各メンバに値をセットする関数。
 
 ```go
 opts = [
@@ -356,7 +424,6 @@ func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
 }
 ```
 </details>
-
 
 それぞれの `scheduler.WithXXXXX()` について `defaultSchedulerOptions` を引数に渡して実行する。
 
