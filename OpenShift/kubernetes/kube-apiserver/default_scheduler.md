@@ -63,7 +63,7 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 1. `scheduler.New()`
 
 <details>
-<summary>- main.main() @cmd/kube-scheduler/scheduler.go</summary>
+<summary>main.main() @cmd/kube-scheduler/scheduler.go</summary>
 
 - main.main() @cmd/kube-scheduler/scheduler.go
 
@@ -87,6 +87,9 @@ func main() {
 }
 ```
 </details>
+
+<details>
+<summary>app.NewSchedulerCommand() @cmd/kube-scheduler/app/server.go</summary>
 
 - app.NewSchedulerCommand() @cmd/kube-scheduler/app/server.go
 
@@ -122,6 +125,10 @@ for more information about scheduling and the kube-scheduler component.`,
                 },
         }
 ```
+</details>
+
+<details>
+<summary>app.runCommand() @cmd/kube-scheduler/app/server.go</summary>
 
 - app.runCommand() @cmd/kube-scheduler/app/server.go
 
@@ -142,6 +149,10 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
         return Run(ctx, cc, sched)
 }
 ```
+</details>
+
+<details>
+<summary>app.Setup() @cmd/kube-scheduler/app/server.go</summary>
 
 - app.Setup() @cmd/kube-scheduler/app/server.go
 
@@ -171,6 +182,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
         )
 
 ```
+</details>
 
 ## `scheduler.New()` の中
 
