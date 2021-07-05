@@ -336,8 +336,9 @@ const (
 <details>
 <summary>SchedulerAlgorithmSource.Policy</summary>
 
-&emsp;<details>
-&emsp;<summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
+<div style="margin-left:2cm;">
+<details>
+<summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicySource @pkg/scheduler/apis/config/types.go
 
@@ -351,7 +352,8 @@ type SchedulerPolicySource struct {
         ConfigMap *SchedulerPolicyConfigMapSource
 }
 ```
-&emsp;</details>
+</details>
+</div>
 
 <details>
 <summary>SchedulerPolicyFileSource @pkg/scheduler/apis/config/types.go</summary>
