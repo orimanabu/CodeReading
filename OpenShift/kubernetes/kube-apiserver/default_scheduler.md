@@ -333,9 +333,10 @@ const (
 
 ### その他の登場人物 (直接は関係ない)
 一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
-<div style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">
 <details>
+<div style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">
 <summary>SchedulerAlgorithmSource.Policy</summary>
+</div>
 
 <details>
 <summary>    SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
@@ -354,7 +355,6 @@ type SchedulerPolicySource struct {
 ```
 </details>
 </details>
-</div>
 
 <details>
 <summary>SchedulerPolicyFileSource @pkg/scheduler/apis/config/types.go</summary>
