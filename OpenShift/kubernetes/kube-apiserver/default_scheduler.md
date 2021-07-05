@@ -333,7 +333,7 @@ const (
 
 ### その他の登場人物 (直接は関係ない)
 一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
-<div style="margin:30px; padding:20px;">
+<div style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">
 <details>
 <summary>SchedulerAlgorithmSource.Policy</summary>
 
