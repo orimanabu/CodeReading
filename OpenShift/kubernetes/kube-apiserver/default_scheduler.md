@@ -188,6 +188,146 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 5. `scheduler.New()`
 
+<details>
+<summary>scheduler.WithProfiles() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithProfiles() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithProfiles sets profiles for Scheduler. By default, there is one profile
+// with the name "default-scheduler".
+func WithProfiles(p ...schedulerapi.KubeSchedulerProfile) Option {
+        return func(o *schedulerOptions) {
+                o.profiles = p
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithAlgorithmSource() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithAlgorithmSource() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithAlgorithmSource sets schedulerAlgorithmSource for Scheduler, the default is a source with DefaultProvider.
+func WithAlgorithmSource(source schedulerapi.SchedulerAlgorithmSource) Option {
+        return func(o *schedulerOptions) {
+                o.schedulerAlgorithmSource = source
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithPercentageOfNodesToScore() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithPercentageOfNodesToScore() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithPercentageOfNodesToScore sets percentageOfNodesToScore for Scheduler, the default value is 50
+func WithPercentageOfNodesToScore(percentageOfNodesToScore int32) Option {
+        return func(o *schedulerOptions) {
+                o.percentageOfNodesToScore = percentageOfNodesToScore
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithFrameworkOutOfTreeRegistry() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithFrameworkOutOfTreeRegistry() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithFrameworkOutOfTreeRegistry sets the registry for out-of-tree plugins. Those plugins
+// will be appended to the default registry.
+func WithFrameworkOutOfTreeRegistry(registry frameworkruntime.Registry) Option {
+        return func(o *schedulerOptions) {
+                o.frameworkOutOfTreeRegistry = registry
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithPodMaxBackoffSeconds() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithPodMaxBackoffSeconds() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithPodMaxBackoffSeconds sets podMaxBackoffSeconds for Scheduler, the default value is 10
+func WithPodMaxBackoffSeconds(podMaxBackoffSeconds int64) Option {
+        return func(o *schedulerOptions) {
+                o.podMaxBackoffSeconds = podMaxBackoffSeconds
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithPodInitialBackoffSeconds() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithPodInitialBackoffSeconds() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithPodInitialBackoffSeconds sets podInitialBackoffSeconds for Scheduler, the default value is 1
+func WithPodInitialBackoffSeconds(podInitialBackoffSeconds int64) Option {
+        return func(o *schedulerOptions) {
+                o.podInitialBackoffSeconds = podInitialBackoffSeconds
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithExtenders() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithExtenders() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithExtenders sets extenders for the Scheduler
+func WithExtenders(e ...schedulerapi.Extender) Option {
+        return func(o *schedulerOptions) {
+                o.extenders = e
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithParallelism() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithParallelism() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithParallelism sets the parallelism for all scheduler algorithms. Default is 16.
+// TODO(#95952): Remove global setter in favor of a struct that holds the configuration.
+func WithParallelism(threads int32) Option {
+        return func(o *schedulerOptions) {
+                parallelize.SetParallelism(int(threads))
+        }
+}
+```
+</details>
+
+<details>
+<summary>scheduler.WithBuildFrameworkCapturer() Option @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.WithBuildFrameworkCapturer() Option @pkg/scheduler/scheduler.go
+
+```go
+// WithBuildFrameworkCapturer sets a notify function for getting buildFramework details.
+func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
+        return func(o *schedulerOptions) {
+                o.frameworkCapturer = fc
+        }
+}
+```
+</details>
+
+
+
 # `scheduler.New()` の中
 
 <details open>
