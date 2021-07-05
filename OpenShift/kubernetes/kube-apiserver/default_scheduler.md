@@ -332,6 +332,10 @@ const (
 
 
 ### その他の登場人物 (直接は関係ない)
+一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
+<details>
+<summary>SchedulerAlgorithmSource.Policy</summary>
+
 <details>
 <summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
@@ -380,15 +384,14 @@ type SchedulerPolicyConfigMapSource struct {
 }
 ```
 </details>
+</details>
 
 ## `configurator.createFromProvider(*source.Provider)` の中
 
-`*source.Provider = "DefaultProvider"`
+`*source.Provider` には `"DefaultProvider"` が入っている。
 
-1. `scheduler.Configurator.createFromProvider()`
-1. `algorithmprovider.NewRegistry()`
-1. `algorithmprovider.getDefaultConfig()`
-1. `algorithmprovider.applyFeatureGates()`
+<details>
+<summary>scheduler.Configurator.createFromProvider() @pkg/scheduler/factory.go</summary>
 
 - scheduler.Configurator.createFromProvider() @pkg/scheduler/factory.go
 
@@ -396,7 +399,7 @@ type SchedulerPolicyConfigMapSource struct {
 // createFromProvider creates a scheduler from the name of a registered algorithm provider.
 func (c *Configurator) createFromProvider(providerName string) (*Scheduler, error) {
         klog.V(2).Infof("Creating scheduler from algorithm provider '%v'", providerName)
-        r := algorithmprovider.NewRegistry()
+        r := algorithmprovider.NewRegistry() // HERE
         defaultPlugins, exist := r[providerName]
         if !exist {
                 return nil, fmt.Errorf("algorithm provider %q is not registered", providerName)
@@ -412,6 +415,53 @@ func (c *Configurator) createFromProvider(providerName string) (*Scheduler, erro
         return c.create()
 }
 ```
+</details>
+
+<details>
+<summary>type Configurator struct @pkg/scheduler/factory.go</summary>
+
+- type Configurator struct @pkg/scheduler/factory.go
+```go
+// Configurator defines I/O, caching, and other functionality needed to
+// construct a new scheduler.
+type Configurator struct {
+        client clientset.Interface
+
+        recorderFactory profile.RecorderFactory
+
+        informerFactory informers.SharedInformerFactory
+
+        // Close this to stop all reflectors
+        StopEverything <-chan struct{}
+
+        schedulerCache internalcache.Cache
+
+        // Always check all predicates even if the middle of one predicate fails.
+        alwaysCheckAllPredicates bool
+
+        // percentageOfNodesToScore specifies percentage of all nodes to score in each scheduling cycle.
+        percentageOfNodesToScore int32
+
+        podInitialBackoffSeconds int64
+
+        podMaxBackoffSeconds int64
+
+        profiles          []schedulerapi.KubeSchedulerProfile
+        registry          frameworkruntime.Registry
+        nodeInfoSnapshot  *internalcache.Snapshot
+        extenders         []schedulerapi.Extender
+        frameworkCapturer FrameworkCapturer
+}
+```
+</details>
+
+### 流れ
+1. `algorithmprovider.NewRegistry()`
+  1. `algorithmprovider.getDefaultConfig()`
+  1. `algorithmprovider.applyFeatureGates()`
+
+<details>
+<summary>algorithmprovider.NewRegistry() @pkg/scheduler/algorithmprovider/registry.go</summary>
 
 - algorithmprovider.NewRegistry() @pkg/scheduler/algorithmprovider/registry.go
 
@@ -433,6 +483,10 @@ func NewRegistry() Registry {
         }
 }
 ```
+</details>
+
+<details>
+<summary>algorithmprovider.getDefaultConfig() @pkg/scheduler/algorithmprovider/registry.go</summary>
 
 - algorithmprovider.getDefaultConfig() @pkg/scheduler/algorithmprovider/registry.go
 
@@ -498,6 +552,10 @@ func getDefaultConfig() *schedulerapi.Plugins {
 
 
 ```
+</details>
+
+<details>
+<summary>algorithmprovider.applyFeatureGates() @pkg/scheduler/algorithmprovider/registry.go</summary>
 
 - algorithmprovider.applyFeatureGates() @pkg/scheduler/algorithmprovider/registry.go
 
@@ -515,3 +573,133 @@ func applyFeatureGates(config *schedulerapi.Plugins) {
 }
 
 ```
+</details>
+
+
+
+<details>
+<summary>schedulerapi.KubeSchedulerProfile struct @pkg/scheduler/apis/config/types.go</summary>
+
+- schedulerapi.KubeSchedulerProfile struct @pkg/scheduler/apis/config/types.go
+
+```go
+// KubeSchedulerProfile is a scheduling profile.
+type KubeSchedulerProfile struct {
+        // SchedulerName is the name of the scheduler associated to this profile.
+        // If SchedulerName matches with the pod's "spec.schedulerName", then the pod
+        // is scheduled with this profile.
+        SchedulerName string
+
+        // Plugins specify the set of plugins that should be enabled or disabled.
+        // Enabled plugins are the ones that should be enabled in addition to the
+        // default plugins. Disabled plugins are any of the default plugins that
+        // should be disabled.
+        // When no enabled or disabled plugin is specified for an extension point,
+        // default plugins for that extension point will be used if there is any.
+        // If a QueueSort plugin is specified, the same QueueSort Plugin and
+        // PluginConfig must be specified for all profiles.
+        Plugins *Plugins
+
+        // PluginConfig is an optional set of custom plugin arguments for each plugin.
+        // Omitting config args for a plugin is equivalent to using the default config
+        // for that plugin.
+        PluginConfig []PluginConfig
+}
+```
+</details>
+
+<details>
+<summary>type Plugins struct @pkg/scheduler/apis/config/types.go</summary>
+
+- type Plugins struct @pkg/scheduler/apis/config/types.go
+
+```go
+// Plugins include multiple extension points. When specified, the list of plugins for
+// a particular extension point are the only ones enabled. If an extension point is
+// omitted from the config, then the default set of plugins is used for that extension point.
+// Enabled plugins are called in the order specified here, after default plugins. If they need to
+// be invoked before default plugins, default plugins must be disabled and re-enabled here in desired order.
+type Plugins struct {
+        // QueueSort is a list of plugins that should be invoked when sorting pods in the scheduling queue.
+        QueueSort *PluginSet
+
+        // PreFilter is a list of plugins that should be invoked at "PreFilter" extension point of the scheduling framework.
+        PreFilter *PluginSet
+
+        // Filter is a list of plugins that should be invoked when filtering out nodes that cannot run the Pod.
+        Filter *PluginSet
+
+        // PostFilter is a list of plugins that are invoked after filtering phase, no matter whether filtering succeeds or not.
+        PostFilter *PluginSet
+
+        // PreScore is a list of plugins that are invoked before scoring.
+        PreScore *PluginSet
+
+        // Score is a list of plugins that should be invoked when ranking nodes that have passed the filtering phase.
+        Score *PluginSet
+
+        // Reserve is a list of plugins invoked when reserving/unreserving resources
+        // after a node is assigned to run the pod.
+        Reserve *PluginSet
+
+        // Permit is a list of plugins that control binding of a Pod. These plugins can prevent or delay binding of a Pod.
+        Permit *PluginSet
+
+        // PreBind is a list of plugins that should be invoked before a pod is bound.
+        PreBind *PluginSet
+
+        // Bind is a list of plugins that should be invoked at "Bind" extension point of the scheduling framework.
+        // The scheduler call these plugins in order. Scheduler skips the rest of these plugins as soon as one returns success.
+        Bind *PluginSet
+
+        // PostBind is a list of plugins that should be invoked after a pod is successfully bound.
+        PostBind *PluginSet
+}
+```
+</details>
+
+<details>
+<summary>type PluginSet struct @pkg/scheduler/apis/config/types.go</summary>
+
+- type PluginSet struct @pkg/scheduler/apis/config/types.go
+
+```go
+// PluginSet specifies enabled and disabled plugins for an extension point.
+// If an array is empty, missing, or nil, default plugins at that extension point will be used.
+type PluginSet struct {
+        // Enabled specifies plugins that should be enabled in addition to default plugins.
+        // These are called after default plugins and in the same order specified here.
+        Enabled []Plugin
+        // Disabled specifies default plugins that should be disabled.
+        // When all default plugins need to be disabled, an array containing only one "*" should be provided.
+        Disabled []Plugin
+}
+```
+</details>
+
+<details>
+<summary>type Plugin struct @pkg/scheduler/apis/config/types.go</summary>
+
+- type Plugin struct @pkg/scheduler/apis/config/types.go
+
+```go
+// Plugin specifies a plugin name and its weight when applicable. Weight is used only for Score plugins.
+type Plugin struct {
+        // Name defines the name of plugin
+        Name string
+        // Weight defines the weight of plugin, only used for Score plugins.
+        Weight int32
+}
+```
+</details>
+
+
+<details>
+<summary>
+</summary>
+- 
+
+```go
+
+```
+</details>
