@@ -7,9 +7,9 @@ kube-apiserverのデフォルトのスケジューラ設定を追う
 
 (基本的にはk8s v1.20.1と同じ)
 
-# Code Reading
+# 起動オプション
 
-## 起動オプション
+実際のコードを見る前に、OpenShift v4.7でのkube-apiserverの起動オプションを確認する。
 
 ```sh
 watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration=135s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP}  -v=2
@@ -52,7 +52,7 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 ]
 ```
 
-## `main()` から `scheduler.New()` が呼ばれるまで
+# `main()` から `scheduler.New()` が呼ばれるまで
 
 まず `main()` から `scheduler.New()` が呼ばれるまでを眺める。関数の呼び出しを追っているだけ。
 
@@ -184,7 +184,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 ```
 </details>
 
-## `scheduler.New()` の中
+# `scheduler.New()` の中
 
 <details open>
 <summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
@@ -243,7 +243,7 @@ func New(client clientset.Interface,
 ```
 </details>
 
-### 処理の流れ
+## 処理の流れ
 defaultSchedulerOptions.schedulerAlgorithmSource.Providerには `"DefaultProvider"` が入っている。
 
 なので、switch文の `case source.Provider != nil` に入って、`configurator.createFromProvider("DefaultProvider")` を呼ぶ。
@@ -331,7 +331,7 @@ const (
 </details>
 
 
-### その他の登場人物 (直接は関係ない)
+## その他の登場人物 (直接は関係ない)
 一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
 <details>
 <summary>SchedulerAlgorithmSource.Policy</summary>
@@ -391,7 +391,7 @@ type SchedulerPolicyConfigMapSource struct {
 
 </details>
 
-## `configurator.createFromProvider(*source.Provider)` の中
+# `configurator.createFromProvider(*source.Provider)` の中
 
 `*source.Provider` には `"DefaultProvider"` が入っている。
 
@@ -460,7 +460,7 @@ type Configurator struct {
 ```
 </details>
 
-### 流れ
+## 流れ
 1. `algorithmprovider.NewRegistry()`
   1. `algorithmprovider.getDefaultConfig()`
   1. `algorithmprovider.applyFeatureGates()`
@@ -699,6 +699,7 @@ type Plugin struct {
 </details>
 
 
+<!--
 <details>
 <summary>
 </summary>
@@ -708,3 +709,4 @@ type Plugin struct {
 
 ```
 </details>
+-->
