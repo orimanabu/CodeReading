@@ -67,7 +67,7 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 func main() {
         rand.Seed(time.Now().UnixNano())
 
-        command := app.NewSchedulerCommand()
+        command := app.NewSchedulerCommand() // HERE
 
         // TODO: once we switch everything over to Cobra commands, we can go back to calling
         // utilflag.InitFlags() (by removing its pflag.Parse() call). For now, we have to set the
@@ -108,7 +108,7 @@ kube-scheduler is the reference implementation.
 See [scheduling](https://kubernetes.io/docs/concepts/scheduling-eviction/)
 for more information about scheduling and the kube-scheduler component.`,
                 Run: func(cmd *cobra.Command, args []string) {
-                        if err := runCommand(cmd, opts, registryOptions...); err != nil {
+                        if err := runCommand(cmd, opts, registryOptions...); err != nil { // HERE
                                 fmt.Fprintf(os.Stderr, "%v\n", err)
                                 os.Exit(1)
                         }
@@ -141,7 +141,7 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
         ctx, cancel := context.WithCancel(context.Background())
         defer cancel()
 
-        cc, sched, err := Setup(ctx, opts, registryOptions...)
+        cc, sched, err := Setup(ctx, opts, registryOptions...) // HERE
         if err != nil {
                 return err
         }
@@ -165,7 +165,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 <snip>
 
         // Create the scheduler.
-        sched, err := scheduler.New(cc.Client,
+        sched, err := scheduler.New(cc.Client, // HERE
                 cc.InformerFactory,
                 recorderFactory,
                 ctx.Done(),
