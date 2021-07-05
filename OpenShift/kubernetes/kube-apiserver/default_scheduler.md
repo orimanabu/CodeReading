@@ -5,6 +5,8 @@ kube-apiserverのデフォルトのスケジューラ設定を追う
 ## Environment
 - OpenShift v4.7 (https://github.com/openshift/kubernetes/tree/oc-4.7-kubernetes-1.20.1)
 
+(基本的にはk8s v1.20.1と同じ)
+
 # Code Reading
 
 ## 起動オプション
@@ -12,6 +14,10 @@ kube-apiserverのデフォルトのスケジューラ設定を追う
 ```sh
 watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating --termination-log-file=/var/log/kube-apiserver/termination.log --graceful-termination-duration=135s --kubeconfig=/etc/kubernetes/static-pod-resources/configmaps/kube-apiserver-cert-syncer-kubeconfig/kubeconfig -- hyperkube kube-apiserver --openshift-config=/etc/kubernetes/static-pod-resources/configmaps/config/config.yaml --advertise-address=${HOST_IP}  -v=2
 ```
+OpenShift的な事情があってwatch-terminationという謎プロセスの子プロセスとして起動しているが、ここは今回の本質じゃないので流す。
+
+hyperkubeはkube-apiserverを呼び出すだけのシェルスクリプト。
+
 `config.yaml` はmasterノードの `/etc/kubernetes/static-pod-resources/kube-apiserver-pod-*/configmaps/config/config.yaml` をhostPathでマウントしている。
 
 ```yaml
@@ -30,7 +36,7 @@ watch-termination --termination-touch-file=/var/log/kube-apiserver/.terminating 
 
 config.yamlは拡張子がyamlなのに中身はjson...なのは置いておいて、スケジューラ設定に関する設定は入ってなさそう。
 
-念のためfeature-gatesをメモしておく。
+念のためconfig.yamlの中のfeature-gatesをメモしておく。
 
 ```sh
 $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resources/kube-apiserver-pod-10/configmaps/config/config.yaml 
@@ -46,13 +52,18 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 ]
 ```
 
-## `scheduler.New()` が呼ばれるまで
+## `main()` から `scheduler.New()` が呼ばれるまで
+
+まず `main()` から `scheduler.New()` が呼ばれるまでを眺める。関数の呼び出しを追っているだけ。
 
 1. `main.main()`
 1. `app.NewSchedulerCommand()`
 1. `app.runCommand()`
 1. `app.Setup()`
 1. `scheduler.New()`
+
+<details>
+<summary>- main.main() @cmd/kube-scheduler/scheduler.go<summary>
 
 - main.main() @cmd/kube-scheduler/scheduler.go
 
@@ -75,6 +86,7 @@ func main() {
         }
 }
 ```
+</details>
 
 - app.NewSchedulerCommand() @cmd/kube-scheduler/app/server.go
 
