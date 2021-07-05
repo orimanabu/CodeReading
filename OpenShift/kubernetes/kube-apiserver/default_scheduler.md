@@ -188,6 +188,70 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 5. `scheduler.New()`
 
+
+
+# `scheduler.New()` の中
+
+## 前半
+
+<details open>
+<summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.New() @pkg/scheduler/scheduler.go
+
+```go
+// New returns a Scheduler
+func New(client clientset.Interface,
+        informerFactory informers.SharedInformerFactory,
+        recorderFactory profile.RecorderFactory,
+        stopCh <-chan struct{},
+        opts ...Option) (*Scheduler, error) {
+
+<snip>
+
+        options := defaultSchedulerOptions // HERE
+        for _, opt := range opts {
+                opt(&options)
+        }
+```
+</details>
+
+まずはdefaultSchedulerOptionsの中身を。
+
+```go
+var defaultSchedulerOptions = schedulerOptions{
+        profiles: []schedulerapi.KubeSchedulerProfile{
+                // Profiles' default plugins are set from the algorithm provider.
+                {SchedulerName: v1.DefaultSchedulerName}, // = {SchedulerName: "default-scheduler"}
+        },
+        schedulerAlgorithmSource: schedulerapi.SchedulerAlgorithmSource{
+                Provider: defaultAlgorithmSourceProviderName(), // = {Provider: "DefaultProvider",}
+        },
+        percentageOfNodesToScore: schedulerapi.DefaultPercentageOfNodesToScore, // = 0
+        podInitialBackoffSeconds: int64(internalqueue.DefaultPodInitialBackoffDuration.Seconds()), // = 1
+        podMaxBackoffSeconds:     int64(internalqueue.DefaultPodMaxBackoffDuration.Seconds()), // = 10
+}
+```
+
+呼び出し元から、optsはこんな「関数を返す関数」のリスト。
+
+```go
+opts = [
+        scheduler.WithProfiles(cc.ComponentConfig.Profiles...),
+        scheduler.WithAlgorithmSource(cc.ComponentConfig.AlgorithmSource),
+        scheduler.WithPercentageOfNodesToScore(cc.ComponentConfig.PercentageOfNodesToScore),
+        scheduler.WithFrameworkOutOfTreeRegistry(outOfTreeRegistry),
+        scheduler.WithPodMaxBackoffSeconds(cc.ComponentConfig.PodMaxBackoffSeconds),
+        scheduler.WithPodInitialBackoffSeconds(cc.ComponentConfig.PodInitialBackoffSeconds),
+        scheduler.WithExtenders(cc.ComponentConfig.Extenders...),
+        scheduler.WithParallelism(cc.ComponentConfig.Parallelism),
+        scheduler.WithBuildFrameworkCapturer(func(profile kubeschedulerconfig.KubeSchedulerProfile) {
+                // Profiles are processed during Framework instantiation to set default plugins and configurations. Capturing them for logging
+                completedProfiles = append(completedProfiles, profile)
+        }),
+]
+```
+
 <details>
 <summary>scheduler.NEW()の引数のscheduler.WithXXXXX() Option @pkg/scheduler/scheduler.go</summary>
 
@@ -294,70 +358,7 @@ func WithBuildFrameworkCapturer(fc FrameworkCapturer) Option {
 </details>
 
 
-
-# `scheduler.New()` の中
-
-<details open>
-<summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
-
-- scheduler.New() @pkg/scheduler/scheduler.go
-
-```go
-// New returns a Scheduler
-func New(client clientset.Interface,
-        informerFactory informers.SharedInformerFactory,
-        recorderFactory profile.RecorderFactory,
-        stopCh <-chan struct{},
-        opts ...Option) (*Scheduler, error) {
-
-<snip>
-
-        options := defaultSchedulerOptions // HERE
-
-<snip>
-
-        var sched *Scheduler
-        source := options.schedulerAlgorithmSource // HERE
-        switch {
-        case source.Provider != nil:
-                // Create the config from a named algorithm provider.
-                sc, err := configurator.createFromProvider(*source.Provider) // HERE
-                if err != nil {
-                        return nil, fmt.Errorf("couldn't create scheduler using provider %q: %v", *source.Provider, err)
-                }
-                sched = sc
-        case source.Policy != nil:
-                // Create the config from a user specified policy source.
-                policy := &schedulerapi.Policy{}
-                switch {
-                case source.Policy.File != nil:
-                        if err := initPolicyFromFile(source.Policy.File.Path, policy); err != nil {
-                                return nil, err
-                        }
-                case source.Policy.ConfigMap != nil:
-                        if err := initPolicyFromConfigMap(client, source.Policy.ConfigMap, policy); err != nil {
-                                return nil, err
-                        }
-                }
-                // Set extenders on the configurator now that we've decoded the policy
-                // In this case, c.extenders should be nil since we're using a policy (and therefore not componentconfig,
-                // which would have set extenders in the above instantiation of Configurator from CC options)
-                configurator.extenders = policy.Extenders
-                sc, err := configurator.createFromConfig(*policy)
-                if err != nil {
-                        return nil, fmt.Errorf("couldn't create scheduler from policy: %v", err)
-                }
-                sched = sc
-        default:
-                return nil, fmt.Errorf("unsupported algorithm source: %v", source)
-        }
-```
-</details>
-
-## 処理の流れ
-defaultSchedulerOptions.schedulerAlgorithmSource.Providerには `"DefaultProvider"` が入っている。
-
-なので、switch文の `case source.Provider != nil` に入って、`configurator.createFromProvider("DefaultProvider")` を呼ぶ。
+それぞれの `scheduler.WithXXXXX()` について `defaultSchedulerOptions` を引数に渡して実行する。
 
 <details>
 <summary>defaultSchedulerOptionsは `type schedulerOptions struct` @pkg/scheduler/scheduler.go</summary>
@@ -440,6 +441,61 @@ const (
 )
 ```
 </details>
+
+
+## 後半
+
+<details open>
+<summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.New() @pkg/scheduler/scheduler.go
+
+```go
+<snip>
+
+        var sched *Scheduler
+        source := options.schedulerAlgorithmSource // HERE
+        switch {
+        case source.Provider != nil:
+                // Create the config from a named algorithm provider.
+                sc, err := configurator.createFromProvider(*source.Provider) // HERE
+                if err != nil {
+                        return nil, fmt.Errorf("couldn't create scheduler using provider %q: %v", *source.Provider, err)
+                }
+                sched = sc
+        case source.Policy != nil:
+                // Create the config from a user specified policy source.
+                policy := &schedulerapi.Policy{}
+                switch {
+                case source.Policy.File != nil:
+                        if err := initPolicyFromFile(source.Policy.File.Path, policy); err != nil {
+                                return nil, err
+                        }
+                case source.Policy.ConfigMap != nil:
+                        if err := initPolicyFromConfigMap(client, source.Policy.ConfigMap, policy); err != nil {
+                                return nil, err
+                        }
+                }
+                // Set extenders on the configurator now that we've decoded the policy
+                // In this case, c.extenders should be nil since we're using a policy (and therefore not componentconfig,
+                // which would have set extenders in the above instantiation of Configurator from CC options)
+                configurator.extenders = policy.Extenders
+                sc, err := configurator.createFromConfig(*policy)
+                if err != nil {
+                        return nil, fmt.Errorf("couldn't create scheduler from policy: %v", err)
+                }
+                sched = sc
+        default:
+                return nil, fmt.Errorf("unsupported algorithm source: %v", source)
+        }
+```
+</details>
+
+## 処理の流れ
+defaultSchedulerOptions.schedulerAlgorithmSource.Providerには `"DefaultProvider"` が入っている。
+
+なので、switch文の `case source.Provider != nil` に入って、`configurator.createFromProvider("DefaultProvider")` を呼ぶ。
+
 
 
 ## その他の登場人物 (直接は関係ない)
