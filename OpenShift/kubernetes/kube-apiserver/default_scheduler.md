@@ -338,7 +338,7 @@ const (
 <summary>SchedulerAlgorithmSource.Policy</summary>
 
 <details>
-<summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
+<summary>    SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicySource @pkg/scheduler/apis/config/types.go
 
