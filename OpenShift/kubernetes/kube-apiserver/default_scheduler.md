@@ -63,7 +63,7 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 1. `scheduler.New()`
 
 <details>
-<summary>- main.main() @cmd/kube-scheduler/scheduler.go<summary>
+<summary>- main.main() @cmd/kube-scheduler/scheduler.go</summary>
 
 - main.main() @cmd/kube-scheduler/scheduler.go
 
