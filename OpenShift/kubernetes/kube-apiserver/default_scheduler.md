@@ -85,9 +85,6 @@ func main() {
 </details>
 
 2. `app.NewSchedulerCommand()`
-1. `app.runCommand()`
-1. `app.Setup()`
-1. `scheduler.New()`
 
 <details>
 <summary>app.NewSchedulerCommand() @cmd/kube-scheduler/app/server.go</summary>
@@ -128,6 +125,8 @@ for more information about scheduling and the kube-scheduler component.`,
 ```
 </details>
 
+3. `app.runCommand()`
+
 <details>
 <summary>app.runCommand() @cmd/kube-scheduler/app/server.go</summary>
 
@@ -151,6 +150,8 @@ func runCommand(cmd *cobra.Command, opts *options.Options, registryOptions ...Op
 }
 ```
 </details>
+
+4. `app.Setup()`
 
 <details>
 <summary>app.Setup() @cmd/kube-scheduler/app/server.go</summary>
@@ -184,6 +185,8 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 ```
 </details>
+
+5. `scheduler.New()`
 
 # `scheduler.New()` の中
 
