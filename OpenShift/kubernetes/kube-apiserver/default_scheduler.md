@@ -333,10 +333,10 @@ const (
 
 ### その他の登場人物 (直接は関係ない)
 一応 SchedulerAlgorithmSource.Policy に何が入ているかを確認しておく
-<details>
 <div style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">
-<summary>SchedulerAlgorithmSource.Policy</summary>
 </div>
+<details>
+<summary><span style="font-size:x-small; font-weight:bold; margin:30px; padding:20px;">SchedulerAlgorithmSource.Policy</span></summary>
 
 <details>
 <summary>    SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
