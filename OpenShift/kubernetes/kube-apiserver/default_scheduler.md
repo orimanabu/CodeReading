@@ -186,7 +186,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 ## `scheduler.New()` の中
 
-<details>
+<details open>
 <summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.New() @pkg/scheduler/scheduler.go
@@ -201,16 +201,16 @@ func New(client clientset.Interface,
 
 <snip>
 
-        options := defaultSchedulerOptions
+        options := defaultSchedulerOptions // HERE
 
 <snip>
 
         var sched *Scheduler
-        source := options.schedulerAlgorithmSource
+        source := options.schedulerAlgorithmSource // HERE
         switch {
         case source.Provider != nil:
                 // Create the config from a named algorithm provider.
-                sc, err := configurator.createFromProvider(*source.Provider)
+                sc, err := configurator.createFromProvider(*source.Provider) // HERE
                 if err != nil {
                         return nil, fmt.Errorf("couldn't create scheduler using provider %q: %v", *source.Provider, err)
                 }
@@ -243,9 +243,8 @@ func New(client clientset.Interface,
 ```
 </details>
 
+### 処理の流れ
 defaultSchedulerOptions.schedulerAlgorithmSource.Providerには `"DefaultProvider"` が入っている。
-
-- defaultSchedulerOptions.schedulerAlgorithmSource.Providerの中身
 
 なので、switch文の `case source.Provider != nil` に入って、`configurator.createFromProvider("DefaultProvider")` を呼ぶ。
 
@@ -273,11 +272,6 @@ var defaultSchedulerOptions = schedulerOptions{
         podMaxBackoffSeconds:     int64(internalqueue.DefaultPodMaxBackoffDuration.Seconds()),
 }
 ```
-</details>
-
-<details>
-<summary>`type schedulerOptions struct` の定義 @pkg/scheduler/scheduler.go</summary>
-
 - scheduler.schedulerOptions @pkg/scheduler/scheduler.go
 
 ```go
@@ -336,53 +330,8 @@ const (
 ```
 </details>
 
-### `source := options.schedulerAlgorithmSource`
 
-<details>
-<summary>scheduler.schedulerOptions @pkg/scheduler/scheduler.go</summary>
-
-- scheduler.schedulerOptions @pkg/scheduler/scheduler.go
-
-```go
-import (
-        schedulerapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
-)
-
-<snip>
-
-type schedulerOptions struct {
-        schedulerAlgorithmSource schedulerapi.SchedulerAlgorithmSource
-        percentageOfNodesToScore int32
-        podInitialBackoffSeconds int64
-        podMaxBackoffSeconds     int64
-        // Contains out-of-tree plugins to be merged with the in-tree registry.
-        frameworkOutOfTreeRegistry frameworkruntime.Registry
-        profiles                   []schedulerapi.KubeSchedulerProfile
-        extenders                  []schedulerapi.Extender
-        frameworkCapturer          FrameworkCapturer
-}
-```
-</details>
-
-### `schedulerapi.SchedulerAlgorithmSource`
-
-<details>
-<summary>SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go</summary>
-
-- SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go
-
-```go
-// SchedulerAlgorithmSource is the source of a scheduler algorithm. One source
-// field must be specified, and source fields are mutually exclusive.
-type SchedulerAlgorithmSource struct {
-        // Policy is a policy based algorithm source.
-        Policy *SchedulerPolicySource
-        // Provider is the name of a scheduling algorithm provider to use.
-        Provider *string
-}
-```
-</details>
-
+### その他の登場人物 (直接は関係ない)
 <details>
 <summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
