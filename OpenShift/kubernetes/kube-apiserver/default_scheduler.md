@@ -57,10 +57,6 @@ $ sudo jq '.apiServerArguments."feature-gates"' /etc/kubernetes/static-pod-resou
 まず `main()` から `scheduler.New()` が呼ばれるまでを眺める。関数の呼び出しを追っているだけ。
 
 1. `main.main()`
-1. `app.NewSchedulerCommand()`
-1. `app.runCommand()`
-1. `app.Setup()`
-1. `scheduler.New()`
 
 <details>
 <summary>main.main() @cmd/kube-scheduler/scheduler.go</summary>
@@ -87,6 +83,11 @@ func main() {
 }
 ```
 </details>
+
+2. `app.NewSchedulerCommand()`
+1. `app.runCommand()`
+1. `app.Setup()`
+1. `scheduler.New()`
 
 <details>
 <summary>app.NewSchedulerCommand() @cmd/kube-scheduler/app/server.go</summary>
