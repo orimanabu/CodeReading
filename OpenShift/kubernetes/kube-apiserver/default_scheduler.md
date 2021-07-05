@@ -186,14 +186,8 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 
 ## `scheduler.New()` の中
 
-1. `options := defaultSchedulerOptions`
-1. `source := options.schedulerAlgorithmSource`
-
-`source` には `{Provider: "DefaultProvider"}` が入る
-
-1. switch文の `case source.Provider != nil` に入る
-
-`configurator.createFromProvider("DefaultProvider")` を呼ぶ
+<details>
+<summary>scheduler.New() @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.New() @pkg/scheduler/scheduler.go
 
@@ -247,27 +241,81 @@ func New(client clientset.Interface,
                 return nil, fmt.Errorf("unsupported algorithm source: %v", source)
         }
 ```
+</details>
 
-### `defaultSchedulerOptions`
+defaultSchedulerOptions.schedulerAlgorithmSource.Providerには `"DefaultProvider"` が入っている。
 
-- defaultSchedulerOptions @pkg/scheduler/scheduler.go
+- defaultSchedulerOptions.schedulerAlgorithmSource.Providerの中身
+
+なので、switch文の `case source.Provider != nil` に入って、`configurator.createFromProvider("DefaultProvider")` を呼ぶ。
+
+<details>
+<summary>defaultSchedulerOptionsは `type schedulerOptions struct` @pkg/scheduler/scheduler.go</summary>
+- scheduler.defaultSchedulerOptions @pkg/scheduler/scheduler.go
 
 ```go
+import (
+        schedulerapi "k8s.io/kubernetes/pkg/scheduler/apis/config"
+)
+
+<snip>
+
 var defaultSchedulerOptions = schedulerOptions{
         profiles: []schedulerapi.KubeSchedulerProfile{
                 // Profiles' default plugins are set from the algorithm provider.
                 {SchedulerName: v1.DefaultSchedulerName},
         },
-        schedulerAlgorithmSource: schedulerapi.SchedulerAlgorithmSource{
-                Provider: defaultAlgorithmSourceProviderName(),
-        },
+        schedulerAlgorithmSource: schedulerapi.SchedulerAlgorithmSource{ // HERE
+                Provider: defaultAlgorithmSourceProviderName(),          // HERE
+        },                                                               // HERE
         percentageOfNodesToScore: schedulerapi.DefaultPercentageOfNodesToScore,
         podInitialBackoffSeconds: int64(internalqueue.DefaultPodInitialBackoffDuration.Seconds()),
         podMaxBackoffSeconds:     int64(internalqueue.DefaultPodMaxBackoffDuration.Seconds()),
 }
 ```
+</details>
 
-- defaultAlgorithmSourceProviderName() @pkg/scheduler/scheduler.go
+<details>
+<summary>`type schedulerOptions struct` の定義 @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.schedulerOptions @pkg/scheduler/scheduler.go
+
+```go
+type schedulerOptions struct {
+        schedulerAlgorithmSource schedulerapi.SchedulerAlgorithmSource
+        percentageOfNodesToScore int32
+        podInitialBackoffSeconds int64
+        podMaxBackoffSeconds     int64
+        // Contains out-of-tree plugins to be merged with the in-tree registry.
+        frameworkOutOfTreeRegistry frameworkruntime.Registry
+        profiles                   []schedulerapi.KubeSchedulerProfile
+        extenders                  []schedulerapi.Extender
+        frameworkCapturer          FrameworkCapturer
+}
+```
+</details>
+
+<details>
+<summary>`schedulerapi.SchedulerAlgorithmSource struct` の定義 @pkg/scheduler/apis/config/types.go</summary>
+
+- schedulerapi.SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go
+
+```go
+// SchedulerAlgorithmSource is the source of a scheduler algorithm. One source
+// field must be specified, and source fields are mutually exclusive.
+type SchedulerAlgorithmSource struct {
+        // Policy is a policy based algorithm source.
+        Policy *SchedulerPolicySource
+        // Provider is the name of a scheduling algorithm provider to use.
+        Provider *string
+}
+```
+</details>
+
+<details>
+<summary>`defaultAlgorithmSourceProviderName()` は `"DefaultProvider"` を返す @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.defaultAlgorithmSourceProviderName() @pkg/scheduler/scheduler.go
 
 ```go
 func defaultAlgorithmSourceProviderName() *string {
@@ -276,7 +324,7 @@ func defaultAlgorithmSourceProviderName() *string {
 }
 ```
 
-- @pkg/scheduler/apis/config/types.go
+- schedulerapi.SchedulerDefaultProviderName @pkg/scheduler/apis/config/types.go
 
 ```go
 const (
@@ -286,10 +334,14 @@ const (
 
 )
 ```
+</details>
 
 ### `source := options.schedulerAlgorithmSource`
 
-- schedulerOptions @pkg/scheduler/scheduler.go
+<details>
+<summary>scheduler.schedulerOptions @pkg/scheduler/scheduler.go</summary>
+
+- scheduler.schedulerOptions @pkg/scheduler/scheduler.go
 
 ```go
 import (
@@ -310,8 +362,12 @@ type schedulerOptions struct {
         frameworkCapturer          FrameworkCapturer
 }
 ```
+</details>
 
 ### `schedulerapi.SchedulerAlgorithmSource`
+
+<details>
+<summary>SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerAlgorithmSource @pkg/scheduler/apis/config/types.go
 
@@ -325,6 +381,10 @@ type SchedulerAlgorithmSource struct {
         Provider *string
 }
 ```
+</details>
+
+<details>
+<summary>SchedulerPolicySource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicySource @pkg/scheduler/apis/config/types.go
 
@@ -338,6 +398,10 @@ type SchedulerPolicySource struct {
         ConfigMap *SchedulerPolicyConfigMapSource
 }
 ```
+</details>
+
+<details>
+<summary>SchedulerPolicyFileSource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicyFileSource @pkg/scheduler/apis/config/types.go
 
@@ -349,6 +413,10 @@ type SchedulerPolicyFileSource struct {
         Path string
 }
 ```
+</details>
+
+<details>
+<summary>SchedulerPolicyConfigMapSource @pkg/scheduler/apis/config/types.go</summary>
 
 - SchedulerPolicyConfigMapSource @pkg/scheduler/apis/config/types.go
 
@@ -362,6 +430,7 @@ type SchedulerPolicyConfigMapSource struct {
         Name string
 }
 ```
+</details>
 
 ## `configurator.createFromProvider(*source.Provider)` の中
 
