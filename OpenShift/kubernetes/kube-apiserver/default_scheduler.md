@@ -629,7 +629,7 @@ type SchedulerPolicyConfigMapSource struct {
 
 `*source.Provider` には `"DefaultProvider"` が入っている。
 
-<details>
+<details open>
 <summary>scheduler.Configurator.createFromProvider() @pkg/scheduler/factory.go</summary>
 
 - scheduler.Configurator.createFromProvider() @pkg/scheduler/factory.go
