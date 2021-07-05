@@ -189,7 +189,7 @@ func Setup(ctx context.Context, opts *options.Options, outOfTreeRegistryOptions 
 5. `scheduler.New()`
 
 <details>
-<summary>scheduler.WithProfiles() Option @pkg/scheduler/scheduler.go</summary>
+<summary>scheduler.NEW()の引数のscheduler.WithXXXXX() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithProfiles() Option @pkg/scheduler/scheduler.go
 
@@ -202,11 +202,6 @@ func WithProfiles(p ...schedulerapi.KubeSchedulerProfile) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithAlgorithmSource() Option @pkg/scheduler/scheduler.go</summary>
-
 - scheduler.WithAlgorithmSource() Option @pkg/scheduler/scheduler.go
 
 ```go
@@ -217,10 +212,6 @@ func WithAlgorithmSource(source schedulerapi.SchedulerAlgorithmSource) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithPercentageOfNodesToScore() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithPercentageOfNodesToScore() Option @pkg/scheduler/scheduler.go
 
@@ -232,10 +223,6 @@ func WithPercentageOfNodesToScore(percentageOfNodesToScore int32) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithFrameworkOutOfTreeRegistry() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithFrameworkOutOfTreeRegistry() Option @pkg/scheduler/scheduler.go
 
@@ -248,10 +235,6 @@ func WithFrameworkOutOfTreeRegistry(registry frameworkruntime.Registry) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithPodMaxBackoffSeconds() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithPodMaxBackoffSeconds() Option @pkg/scheduler/scheduler.go
 
@@ -263,10 +246,6 @@ func WithPodMaxBackoffSeconds(podMaxBackoffSeconds int64) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithPodInitialBackoffSeconds() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithPodInitialBackoffSeconds() Option @pkg/scheduler/scheduler.go
 
@@ -278,10 +257,6 @@ func WithPodInitialBackoffSeconds(podInitialBackoffSeconds int64) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithExtenders() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithExtenders() Option @pkg/scheduler/scheduler.go
 
@@ -293,10 +268,6 @@ func WithExtenders(e ...schedulerapi.Extender) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithParallelism() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithParallelism() Option @pkg/scheduler/scheduler.go
 
@@ -309,10 +280,6 @@ func WithParallelism(threads int32) Option {
         }
 }
 ```
-</details>
-
-<details>
-<summary>scheduler.WithBuildFrameworkCapturer() Option @pkg/scheduler/scheduler.go</summary>
 
 - scheduler.WithBuildFrameworkCapturer() Option @pkg/scheduler/scheduler.go
 
