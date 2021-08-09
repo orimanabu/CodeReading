@@ -67,7 +67,7 @@ inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジス
 
 <details>
 <summary>
-- func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go
+func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go
 </summary>
 
 ```go
@@ -280,7 +280,7 @@ spec:
 
 <details>
 <summary>
-- type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go
+type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go
 </summary>
 
 ```go
@@ -294,7 +294,7 @@ type blobWriter struct {
 
 <details>
 <summary>
-- type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go
+type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go
 </summary>
 
 ```go
@@ -338,7 +338,7 @@ type BlobWriter interface {
 
 <details>
 <summary>
-- `type Wrapper func(...) error @pkg/dockerregistry/server/wrapped/wrapper.go`
+type Wrapper func(...) error @pkg/dockerregistry/server/wrapped/wrapper.go
 </summary>
 
 ```go
@@ -352,7 +352,7 @@ type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Conte
 
 <details>
 <summary>
-- `func main() @cmd/dockerregistry/main.go`
+func main() @cmd/dockerregistry/main.go
 </summary>
 
 ```go
@@ -365,7 +365,7 @@ func main() {
 
 <details>
 <summary>
-- func Execute() @pkg/cmd/dockerregistry/dockerregistry.go
+func Execute() @pkg/cmd/dockerregistry/dockerregistry.go
 </summary>
 
 ```go
@@ -379,8 +379,8 @@ func Execute(configFile io.Reader) {
 
 <details>
 <summary>
+func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go
 </summary>
-- func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go
 
 ```go
 func NewServer(ctx context.Context, dockerConfig *configuration.Configuration, extraConfig *registryconfig.Configuration) (*http.Server, error) {
@@ -398,8 +398,8 @@ func NewServer(ctx context.Context, dockerConfig *configuration.Configuration, e
 
 <details>
 <summary>
+func server.NewApp() @pkg/dockerregistry/server/app.go
 </summary>
-- func server.NewApp() @pkg/dockerregistry/server/app.go
 
 ```go
 // NewApp configures the registry application and returns http.Handler for it.
@@ -412,8 +412,8 @@ func NewApp(ctx context.Context, registryClient client.RegistryClient, dockerCon
 
 <details>
 <summary>
+func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go
 </summary>
-- func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go
 
 ```go
 // NewApp configures the registry application to use specified set of                                                  
@@ -430,8 +430,8 @@ func NewApp(ctx context.Context, config *configuration.Configuration, app App) *
 
 <details>
 <summary>
+func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go
 </summary>
-- func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go
 
 ```go
 // NewApp takes a configuration and returns a configured app, ready to serve
@@ -459,8 +459,8 @@ cf.
 
 <details>
 <summary>
+func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go
 </summary>
-- func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go
 
 ```go
 // Type returns the storage driver type, such as filesystem or s3
@@ -495,8 +495,8 @@ func (storage Storage) Type() string {
 
 <details>
 <summary>
+func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 </summary>
-- func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 
 ```go
 // Create a new storagedriver.StorageDriver with the given name and
@@ -517,8 +517,8 @@ driverFactoriesは `map[string]StorageDriverFactory` で、各ストレージド
 
 <details>
 <summary>
+var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 </summary>
-- var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 
 ```go
 // driverFactories stores an internal mapping between storage driver names and their respective
@@ -529,8 +529,8 @@ var driverFactories = make(map[string]StorageDriverFactory)
 
 <details>
 <summary>
+func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 </summary>
-- func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
 
 ```go
 // Register makes a storage driver available by the provided name.
@@ -553,8 +553,8 @@ func Register(name string, factory StorageDriverFactory) {
 
 <details>
 <summary>
+func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 </summary>
-- func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 
 ```go
 func init() {
@@ -565,8 +565,8 @@ func init() {
 
 <details>
 <summary>
+func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
 </summary>
-- func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
 
 ```go
 func init() {
@@ -582,8 +582,8 @@ filesystemの場合、`factory.Create()` から `filesystem.FromParameters()` �
 
 <details>
 <summary>
+func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 </summary>
-- func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 
 ```go
 func (factory *filesystemDriverFactory) Create(parameters map[string]interface{}) (storagedriver.StorageDriver, error) {
@@ -594,8 +594,8 @@ func (factory *filesystemDriverFactory) Create(parameters map[string]interface{}
 
 <details>
 <summary>
+func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 </summary>
-- func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
 
 ```go
 // FromParameters constructs a new Driver with a given parameters map
