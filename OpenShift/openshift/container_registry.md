@@ -338,8 +338,8 @@ type BlobWriter interface {
 
 <details>
 <summary>
-</summary>
 - `type Wrapper func(...) error @pkg/dockerregistry/server/wrapped/wrapper.go`
+</summary>
 
 ```go
 // Wrapper is a user defined function that wraps methods to control their
@@ -352,8 +352,8 @@ type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Conte
 
 <details>
 <summary>
+- `func main() @cmd/dockerregistry/main.go`
 </summary>
-- func main() @cmd/dockerregistry/main.go
 
 ```go
 func main() {
@@ -365,8 +365,8 @@ func main() {
 
 <details>
 <summary>
-</summary>
 - func Execute() @pkg/cmd/dockerregistry/dockerregistry.go
+</summary>
 
 ```go
 // Execute runs the Docker registry.
