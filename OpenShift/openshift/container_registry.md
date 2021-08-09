@@ -67,8 +67,8 @@ inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジス
 
 <details>
 <summary>
-</summary>
 - func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go
+</summary>
 
 ```go
 // pathFor maps paths based on "object names" and their ids. The "object
@@ -280,8 +280,8 @@ spec:
 
 <details>
 <summary>
+- type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go
 </summary>
-- `type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go`
 
 ```go
 // blobWriter wraps a distribution.BlobWriter.
@@ -294,8 +294,8 @@ type blobWriter struct {
 
 <details>
 <summary>
+- type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go
 </summary>
-- `type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go`
 
 ```go
 // BlobWriter provides a handle for inserting data into a blob store.
