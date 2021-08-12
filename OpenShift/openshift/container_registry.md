@@ -48,17 +48,6 @@ func (bw *blobWriter) Commit(ctx context.Context, desc distribution.Descriptor) 
 }
 ```
 
-これを呼び出しているのは
-
-- `pkg/dockerregistry/server/wrapped/blobwriter.go`
-- `pkg/dockerregistry/server/pullthroughblobstore.go`
-- `pkg/dockerregistry/server/quotarestrictedblobstore.go`
-- `vendor/github.com/docker/distribution/notifications/listener.go`
-- `vendor/github.com/docker/distribution/registry/proxy/proxyblobstore.go`
-- `vendor/github.com/docker/distribution/registry/storage/blobwriter.go`
-
-この辺りか
-
 # 挙動の調査
 
 inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジストリのストレージを見てみると、push時は一時的に `_upload` というディレクトリを掘ってその下にアップロードし、完了すると正規のblob用ディレクトリに移動して `_upload` ディレクトリを消す、みたいな動きをしているように見える。
@@ -179,176 +168,7 @@ func pathFor(spec pathSpec) (string, error) {
 ```
 </details>
 
-# manifest
-
-```yaml
-spec:
-  affinity:
-    podAntiAffinity:
-      preferredDuringSchedulingIgnoredDuringExecution:
-      - podAffinityTerm:
-          namespaces:
-          - openshift-image-registry
-          topologyKey: kubernetes.io/hostname
-        weight: 100
-  containers:
-  - env:
-    - name: REGISTRY_STORAGE
-      value: filesystem
-    - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
-      value: /registry
-    - name: REGISTRY_HTTP_ADDR
-      value: :5000
-    - name: REGISTRY_HTTP_NET
-      value: tcp
-    - name: REGISTRY_HTTP_SECRET
-      value: 5c9ffd0bee5047468ef7fc2748d8c82c5b83d8eb29f6f33f41dcb40785e08dd9aa947570565075fca73efdec0b85909755da6bf117acde22cf942e99d1482514
-    - name: REGISTRY_LOG_LEVEL
-      value: info
-    - name: REGISTRY_OPENSHIFT_QUOTA_ENABLED
-      value: "true"
-    - name: REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR
-      value: inmemory
-    - name: REGISTRY_STORAGE_DELETE_ENABLED
-      value: "true"
-    - name: REGISTRY_OPENSHIFT_METRICS_ENABLED
-      value: "true"
-    - name: REGISTRY_OPENSHIFT_SERVER_ADDR
-      value: image-registry.openshift-image-registry.svc:5000
-    - name: REGISTRY_HTTP_TLS_CERTIFICATE
-      value: /etc/secrets/tls.crt
-    - name: REGISTRY_HTTP_TLS_KEY
-      value: /etc/secrets/tls.key
-...
-    volumeMounts:
-    - mountPath: /registry
-      name: registry-storage
-    - mountPath: /etc/secrets
-      name: registry-tls
-    - mountPath: /etc/pki/ca-trust/source/anchors
-      name: registry-certificates
-    - mountPath: /usr/share/pki/ca-trust-source
-      name: trusted-ca
-    - mountPath: /var/lib/kubelet/
-      name: installation-pull-secrets
-    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
-      name: registry-token-6fzsg
-      readOnly: true
-...
-  volumes:
-  - emptyDir: {}
-    name: registry-storage
-  - name: registry-tls
-    projected:
-      defaultMode: 420
-      sources:
-      - secret:
-          name: image-registry-tls
-  - configMap:
-      defaultMode: 420
-      name: image-registry-certificates
-    name: registry-certificates
-  - configMap:
-      defaultMode: 420
-      items:
-      - key: ca-bundle.crt
-        path: anchors/ca-bundle.crt
-      name: trusted-ca
-      optional: true
-    name: trusted-ca
-  - name: installation-pull-secrets
-    secret:
-      defaultMode: 420
-      items:
-      - key: .dockerconfigjson
-        path: config.json
-      optional: true
-      secretName: installation-pull-secrets
-  - name: registry-token-6fzsg
-    secret:
-      defaultMode: 420
-      secretName: registry-token-6fzsg
-```
-
-# 
-
-- ./vendor/github.com/docker/distribution/registry/storage/driver/storagedriver.go
-- ./vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
-- ./vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
-
-# データ構造
-
-<details>
-<summary>
-type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go
-</summary>
-
-```go
-// blobWriter wraps a distribution.BlobWriter.
-type blobWriter struct {
-        distribution.BlobWriter
-        wrapper Wrapper
-}
-```
-</details>
-
-<details>
-<summary>
-type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go
-</summary>
-
-```go
-// BlobWriter provides a handle for inserting data into a blob store.
-// Instances should be obtained from BlobWriteService.Writer and
-// BlobWriteService.Resume. If supported by the store, a writer can be
-// recovered with the id.
-type BlobWriter interface {
-        io.WriteCloser
-        io.ReaderFrom
-
-        // Size returns the number of bytes written to this blob.
-        Size() int64
-
-        // ID returns the identifier for this writer. The ID can be used with the
-        // Blob service to later resume the write.
-        ID() string
-
-        // StartedAt returns the time this blob write was started.
-        StartedAt() time.Time
-
-        // Commit completes the blob writer process. The content is verified 
-        // against the provided provisional descriptor, which may result in an
-        // error. Depending on the implementation, written data may be validated
-        // against the provisional descriptor fields. If MediaType is not present,
-        // the implementation may reject the commit or assign "application/octet-
-        // stream" to the blob. The returned descriptor may have a different
-        // digest depending on the blob store, referred to as the canonical
-        // descriptor.
-        Commit(ctx context.Context, provisional Descriptor) (canonical Descriptor, err error)
-                
-        // Cancel ends the blob write without storing any data and frees any
-        // associated resources. Any data written thus far will be lost. Cancel
-        // implementations should allow multiple calls even after a commit that
-        // result in a no-op. This allows use of Cancel in a defer statement,
-        // increasing the assurance that it is correctly called.
-        Cancel(ctx context.Context) error
-}
-```
-</details>
-
-<details>
-<summary>
-type Wrapper func(...) error @pkg/dockerregistry/server/wrapped/wrapper.go
-</summary>
-
-```go
-// Wrapper is a user defined function that wraps methods to control their
-// execution flow, contexts and error reporing.
-type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Context) error) error
-```
-</details>
-
-# 起動
+# プロセス起動
 
 - [func main() @cmd/dockerregistry/main.go](https://github.com/openshift/image-registry/blob/release-4.8/cmd/dockerregistry/main.go#L93)
 <details>
@@ -628,7 +448,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 
 最終的に、`fromParametersImpl()` の中で `filesystem` ストレージドライバ固有のパラメータ(`rootdirectory`, `maxthreads`等)を設定している。
 
-以上の初期化処理の流れから、ストレージドライバ固有の処理は基本的に `vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go` にあることがわかる。
+以上の初期化処理の流れから、ファイルストレージのストレージドライバ固有の処理は基本的に `vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go` にあることがわかる。
 
 # Blobアップロード時
 
@@ -856,6 +676,175 @@ func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) e
 
 
 <!--
+# manifest
+
+```yaml
+spec:
+  affinity:
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+      - podAffinityTerm:
+          namespaces:
+          - openshift-image-registry
+          topologyKey: kubernetes.io/hostname
+        weight: 100
+  containers:
+  - env:
+    - name: REGISTRY_STORAGE
+      value: filesystem
+    - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
+      value: /registry
+    - name: REGISTRY_HTTP_ADDR
+      value: :5000
+    - name: REGISTRY_HTTP_NET
+      value: tcp
+    - name: REGISTRY_HTTP_SECRET
+      value: 5c9ffd0bee5047468ef7fc2748d8c82c5b83d8eb29f6f33f41dcb40785e08dd9aa947570565075fca73efdec0b85909755da6bf117acde22cf942e99d1482514
+    - name: REGISTRY_LOG_LEVEL
+      value: info
+    - name: REGISTRY_OPENSHIFT_QUOTA_ENABLED
+      value: "true"
+    - name: REGISTRY_STORAGE_CACHE_BLOBDESCRIPTOR
+      value: inmemory
+    - name: REGISTRY_STORAGE_DELETE_ENABLED
+      value: "true"
+    - name: REGISTRY_OPENSHIFT_METRICS_ENABLED
+      value: "true"
+    - name: REGISTRY_OPENSHIFT_SERVER_ADDR
+      value: image-registry.openshift-image-registry.svc:5000
+    - name: REGISTRY_HTTP_TLS_CERTIFICATE
+      value: /etc/secrets/tls.crt
+    - name: REGISTRY_HTTP_TLS_KEY
+      value: /etc/secrets/tls.key
+...
+    volumeMounts:
+    - mountPath: /registry
+      name: registry-storage
+    - mountPath: /etc/secrets
+      name: registry-tls
+    - mountPath: /etc/pki/ca-trust/source/anchors
+      name: registry-certificates
+    - mountPath: /usr/share/pki/ca-trust-source
+      name: trusted-ca
+    - mountPath: /var/lib/kubelet/
+      name: installation-pull-secrets
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: registry-token-6fzsg
+      readOnly: true
+...
+  volumes:
+  - emptyDir: {}
+    name: registry-storage
+  - name: registry-tls
+    projected:
+      defaultMode: 420
+      sources:
+      - secret:
+          name: image-registry-tls
+  - configMap:
+      defaultMode: 420
+      name: image-registry-certificates
+    name: registry-certificates
+  - configMap:
+      defaultMode: 420
+      items:
+      - key: ca-bundle.crt
+        path: anchors/ca-bundle.crt
+      name: trusted-ca
+      optional: true
+    name: trusted-ca
+  - name: installation-pull-secrets
+    secret:
+      defaultMode: 420
+      items:
+      - key: .dockerconfigjson
+        path: config.json
+      optional: true
+      secretName: installation-pull-secrets
+  - name: registry-token-6fzsg
+    secret:
+      defaultMode: 420
+      secretName: registry-token-6fzsg
+```
+
+# 
+
+- ./vendor/github.com/docker/distribution/registry/storage/driver/storagedriver.go
+- ./vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
+- ./vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
+
+# データ構造
+
+<details>
+<summary>
+type blobWriter struct @pkg/dockerregistry/server/wrapped/blobwriter.go
+</summary>
+
+```go
+// blobWriter wraps a distribution.BlobWriter.
+type blobWriter struct {
+        distribution.BlobWriter
+        wrapper Wrapper
+}
+```
+</details>
+
+<details>
+<summary>
+type BlobWriter interface @vendor/github.com/docker/distribution/blobs.go
+</summary>
+
+```go
+// BlobWriter provides a handle for inserting data into a blob store.
+// Instances should be obtained from BlobWriteService.Writer and
+// BlobWriteService.Resume. If supported by the store, a writer can be
+// recovered with the id.
+type BlobWriter interface {
+        io.WriteCloser
+        io.ReaderFrom
+
+        // Size returns the number of bytes written to this blob.
+        Size() int64
+
+        // ID returns the identifier for this writer. The ID can be used with the
+        // Blob service to later resume the write.
+        ID() string
+
+        // StartedAt returns the time this blob write was started.
+        StartedAt() time.Time
+
+        // Commit completes the blob writer process. The content is verified 
+        // against the provided provisional descriptor, which may result in an
+        // error. Depending on the implementation, written data may be validated
+        // against the provisional descriptor fields. If MediaType is not present,
+        // the implementation may reject the commit or assign "application/octet-
+        // stream" to the blob. The returned descriptor may have a different
+        // digest depending on the blob store, referred to as the canonical
+        // descriptor.
+        Commit(ctx context.Context, provisional Descriptor) (canonical Descriptor, err error)
+                
+        // Cancel ends the blob write without storing any data and frees any
+        // associated resources. Any data written thus far will be lost. Cancel
+        // implementations should allow multiple calls even after a commit that
+        // result in a no-op. This allows use of Cancel in a defer statement,
+        // increasing the assurance that it is correctly called.
+        Cancel(ctx context.Context) error
+}
+```
+</details>
+
+<details>
+<summary>
+type Wrapper func(...) error @pkg/dockerregistry/server/wrapped/wrapper.go
+</summary>
+
+```go
+// Wrapper is a user defined function that wraps methods to control their
+// execution flow, contexts and error reporing.
+type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Context) error) error
+```
+</details>
+
 # xxx
 
 - [func (r *repository) Manifests() @pkg/dockerregistry/server/repository.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/repository.go#L108)
