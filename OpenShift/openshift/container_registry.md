@@ -589,7 +589,7 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 
 中で `blobWriter.Commit()` が呼ばれていることがわかる。ここでようやく冒頭の「ざっとgrepした感じここが怪しいかも」と書いたCommit処理に来た。
 
-# `blobWriter.Commit()`
+## `blobWriter.Commit()`
 
 - [func (bw *blobWriter) Commit() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/blobwriter.go#L74)
 <details>
