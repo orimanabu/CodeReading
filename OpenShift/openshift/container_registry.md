@@ -536,9 +536,10 @@ var driverFactories = make(map[string]StorageDriverFactory)
 ```
 </details>
 
+- [func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L42)
 <details>
 <summary>
-func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
+(snippet from func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
@@ -560,9 +561,10 @@ func Register(name string, factory StorageDriverFactory) {
 ```
 </details>
 
+- [func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L38)
 <details>
 <summary>
-func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
+(snippet from func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
@@ -572,9 +574,10 @@ func init() {
 ```
 </details>
 
+- [func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go#L134-L135)
 <details>
 <summary>
-func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
+(snippet from func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go)
 </summary>
 
 ```go
@@ -589,9 +592,10 @@ func init() {
 
 filesystemの場合、`factory.Create()` から `filesystem.FromParameters()` を呼び出す。
 
+- [func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L45)
 <details>
 <summary>
-func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
+(snippet from func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
@@ -601,9 +605,10 @@ func (factory *filesystemDriverFactory) Create(parameters map[string]interface{}
 ```
 </details>
 
+- [func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L67)
 <details>
 <summary>
-func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
+(snippet from func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
