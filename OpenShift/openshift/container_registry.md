@@ -630,13 +630,274 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 
 以上の初期化処理の流れから、ストレージドライバ固有の処理は基本的に `vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go` にあることがわかる。
 
+# Blobアップロード時
+
+Blobアップロード時は、下記のディスパッチテーブルから、`StartBlobUpload()` が呼ばれる。またクライアントはアップロード完了時にHTTP PUTを送ることになっており[^1]、その場合は `PutBlobUploadComplete` が呼ばれる。
+
+[^1]: See also "Completed Upload" in Docker Registry API Reference [https://docs.docker.com/registry/spec/api/#completed-upload]
+
+- [func blobUploadDispatcher() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/handlers/blobupload.go#L32)
 <details>
 <summary>
+(snippet from:
+func blobUploadDispatcher() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go
+)
 </summary>
-- 
 
 ```go
+// blobUploadDispatcher constructs and returns the blob upload handler for the
+// given request context.
+func blobUploadDispatcher(ctx *Context, r *http.Request) http.Handler {
+...
+        handler := handlers.MethodHandler{
+                "GET":  http.HandlerFunc(buh.GetUploadStatus),
+                "HEAD": http.HandlerFunc(buh.GetUploadStatus),
+        }
 
+        if !ctx.readOnly {
+                handler["POST"] = http.HandlerFunc(buh.StartBlobUpload)
+                handler["PATCH"] = http.HandlerFunc(buh.PatchBlobData)
+                handler["PUT"] = http.HandlerFunc(buh.PutBlobUploadComplete)
+                handler["DELETE"] = http.HandlerFunc(buh.CancelBlobUpload)
+        }
+```
+</details>
+
+## `StartBlobUpload()`
+
+- [func (buh *blobUploadHandler) StartBlobUpload() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/handlers/blobupload.go#L121)
+<details>
+<summary>
+(snippet from:
+func (buh *blobUploadHandler) StartBlobUpload() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go
+)
+</summary>
+
+```go
+// StartBlobUpload begins the blob upload process and allocates a server-side
+// blob writer session, optionally mounting the blob from a separate repository.
+func (buh *blobUploadHandler) StartBlobUpload(w http.ResponseWriter, r *http.Request) {
+...
+        blobs := buh.Repository.Blobs(buh)
+        upload, err := blobs.Create(buh, options...)
+...
+        buh.Upload = upload
+```
+</details>
+
+`blobs.Create()` すると、`blobWriter` が返る。つまり、`buh.Upload` にはblobWriterが代入される (その中には `driver.Writer` が入っている)。
+
+- [func (lbs *linkedBlobStore) Create @vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go#L174)
+<details>
+<summary>
+(snippet from:
+func (lbs *linkedBlobStore) Create @vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go
+)
+</summary>
+
+```go
+var _ distribution.BlobStore = &linkedBlobStore{}
+
+// Writer begins a blob write session, returning a handle.
+func (lbs *linkedBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
+...
+        return lbs.newBlobUpload(ctx, uuid, path, startedAt, false)
+}
+```
+</details>
+
+- [func (lbs *linkedBlobStore) newBlobUpload() @vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go#L314-L324)
+<details>
+<summary>
+(snippet from:
+func (lbs *linkedBlobStore) newBlobUpload() @vendor/github.com/docker/distribution/registry/storage/linkedblobstore.go
+)
+</summary>
+
+```go
+// newBlobUpload allocates a new upload controller with the given state.
+func (lbs *linkedBlobStore) newBlobUpload(ctx context.Context, uuid, path string, startedAt time.Time, append bool) (distribution.BlobWriter, error) {
+        fw, err := lbs.driver.Writer(ctx, path, append)
+        if err != nil {
+                return nil, err
+        }
+
+        bw := &blobWriter{
+                ctx:                    ctx,
+                blobStore:              lbs,
+                id:                     uuid,
+                startedAt:              startedAt,
+                digester:               digest.Canonical.Digester(),
+                fileWriter:             fw,
+                driver:                 lbs.driver,
+                path:                   path,
+                resumableDigestEnabled: lbs.resumableDigestEnabled,
+        }
+
+        return bw, nil
+}
+```
+</details>
+
+## `PutBlobUploadComplete()`
+
+- [func (buh *blobUploadHandler) PutBlobUploadComplete() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/handlers/blobupload.go#L226)
+<details>
+<summary>
+(snippet from:
+func (buh *blobUploadHandler) PutBlobUploadComplete() @vendor/github.com/docker/distribution/registry/handlers/blobupload.go
+)
+</summary>
+
+```go
+// PutBlobUploadComplete takes the final request of a blob upload. The
+// request may include all the blob data or no blob data. Any data
+// provided is received and verified. If successful, the blob is linked
+// into the blob store and 201 Created is returned with the canonical
+// url of the blob.
+func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *http.Request) {
+...
+        desc, err := buh.Upload.Commit(buh, distribution.Descriptor{
+                Digest: dgst,
+
+                // TODO(stevvooe): This isn't wildly important yet, but we should
+                // really set the mediatype. For now, we can let the backend take care
+                // of this.
+        })
+```
+</details>
+
+中で `blobWriter.Commit()` が呼ばれていることがわかる。
+
+
+# xxx
+
+- [func (r *repository) Manifests() @pkg/dockerregistry/server/repository.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/repository.go#L108)
+<details>
+<summary>
+(snippet from:
+func (r *repository) Manifests() @pkg/dockerregistry/server/repository.go
+)
+</summary>
+
+```go
+// Manifests returns r, which implements distribution.ManifestService.
+func (r *repository) Manifests(ctx context.Context, options ...distribution.ManifestServiceOption) (distribution.ManifestService, error) {
+...
+        ms = &manifestService{
+                manifests:     ms,
+                blobStore:     r.Blobs(ctx),
+                serverAddr:    r.app.config.Server.Addr,
+                imageStream:   r.imageStream,
+                cache:         r.cache,
+                acceptSchema2: r.app.config.Compatibility.AcceptSchema2,
+        }
+```
+</details>
+
+- [func (r *repository) Blobs() @pkg/dockerregistry/server/repository.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/repository.go#L131)
+<details>
+<summary>
+(snippet from:
+func (r *repository) Blobs() @pkg/dockerregistry/server/repository.go
+)
+</summary>
+
+```go
+// Blobs returns a blob store which can delegate to remote repositories.
+func (r *repository) Blobs(ctx context.Context) distribution.BlobStore {
+...
+        if audit.LoggerExists(ctx) {
+                bs = audit.NewBlobStore(ctx, bs)
+        }
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
+```
+</details>
+
+- []()
+<details>
+<summary>
+(snippet from:
+)
+</summary>
+
+```go
 ```
 </details>
 
