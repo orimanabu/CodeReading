@@ -48,6 +48,11 @@ func (bw *blobWriter) Commit(ctx context.Context, desc distribution.Descriptor) 
 }
 ```
 
+# 環境
+
+- OpenShift Container Platform v4.8
+- コンテナレジストリのソースは[ここ](https://github.com/openshift/image-registry/tree/release-4.8)
+
 # 挙動の調査
 
 inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジストリのストレージを見てみると、push時は一時的に `_upload` というディレクトリを掘ってその下にアップロードし、完了すると正規のblob用ディレクトリに移動して `_upload` ディレクトリを消す、みたいな動きをしているように見える。
