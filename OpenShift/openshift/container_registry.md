@@ -352,7 +352,7 @@ type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Conte
 
 <details>
 <summary>
-func main() @cmd/dockerregistry/main.go
+[func main() @cmd/dockerregistry/main.go](https://github.com/openshift/image-registry/blob/release-4.8/cmd/dockerregistry/main.go#L93)
 </summary>
 
 ```go
@@ -455,7 +455,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration) *App {
 cf.
 - https://docs.docker.com/registry/configuration/#list-of-configuration-options
 
-内部レジストリの場合、Deploymentから環境変数 `REGISTRY_STORAGE` で指定している。
+OCP内部レジストリの場合、Deploymentから環境変数 `REGISTRY_STORAGE` で指定している値が該当する。
 
 <details>
 <summary>
