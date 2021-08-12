@@ -351,7 +351,7 @@ type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Conte
 # 起動
 
 - [func main() @cmd/dockerregistry/main.go](https://github.com/openshift/image-registry/blob/release-4.8/cmd/dockerregistry/main.go#L93)
-<div style="margin-left: 100px;">
+<div style="padding-left: 100px; margin-left: 100px;">
 <details>
 <summary>
 func main() @cmd/dockerregistry/main.go
