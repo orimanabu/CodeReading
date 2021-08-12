@@ -4,7 +4,7 @@ OpenShiftの内部コンテナレジストリがデータをストレージに�
 
 ざっとgrepした感じ、
 
-- func Commit() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go
+- [func Commit() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/blobwriter.go#L57-L59)
 
 辺りがそれっぽい。
 
@@ -54,9 +54,10 @@ inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジス
 
 ソース的にはこの辺りが参考になりそう。
 
+- [func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/paths.go#L21-L105)
 <details>
 <summary>
-func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go
+(snippet from: func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go)
 </summary>
 
 ```go
@@ -173,7 +174,7 @@ func pathFor(spec pathSpec) (string, error) {
 - [func main() @cmd/dockerregistry/main.go](https://github.com/openshift/image-registry/blob/release-4.8/cmd/dockerregistry/main.go#L93)
 <details>
 <summary>
-(snippet from func main() @cmd/dockerregistry/main.go)
+(snippet from: func main() @cmd/dockerregistry/main.go)
 </summary>
 
 ```go
@@ -187,7 +188,7 @@ func main() {
 - [func Execute() @pkg/cmd/dockerregistry/dockerregistry.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/cmd/dockerregistry/dockerregistry.go#L164)
 <details>
 <summary>
-(snippet from func Execute() @pkg/cmd/dockerregistry/dockerregistry.go)
+(snippet from: func Execute() @pkg/cmd/dockerregistry/dockerregistry.go)
 </summary>
 
 ```go
@@ -202,7 +203,7 @@ func Execute(configFile io.Reader) {
 - [func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/cmd/dockerregistry/dockerregistry.go#L210)
 <details>
 <summary>
-(snippet from func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go)
+(snippet from: func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go)
 </summary>
 
 ```go
@@ -222,7 +223,7 @@ func NewServer(ctx context.Context, dockerConfig *configuration.Configuration, e
 - [func server.NewApp() @pkg/dockerregistry/server/app.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/app.go#L138)
 <details>
 <summary>
-(snippet from func server.NewApp() @pkg/dockerregistry/server/app.go)
+(snippet from: func server.NewApp() @pkg/dockerregistry/server/app.go)
 </summary>
 
 ```go
@@ -237,7 +238,7 @@ func NewApp(ctx context.Context, registryClient client.RegistryClient, dockerCon
 - [func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/supermiddleware/app.go#L96)
 <details>
 <summary>
-(snippet from func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go)
+(snippet from: func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go)
 </summary>
 
 ```go
@@ -256,7 +257,7 @@ func NewApp(ctx context.Context, config *configuration.Configuration, app App) *
 - [func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/handlers/app.go#L122)
 <details>
 <summary>
-(snippet from func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go)
+(snippet from: func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go)
 </summary>
 
 ```go
@@ -286,7 +287,7 @@ OCP内部レジストリの場合、Deploymentから環境変数 `REGISTRY_STORA
 - [func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/configuration/configuration.go#L420)
 <details>
 <summary>
-(snippet from func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go)
+(snippet from: func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go)
 </summary>
 
 ```go
@@ -323,7 +324,7 @@ func (storage Storage) Type() string {
 - [func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L54)
 <details>
 <summary>
-(snippet from func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
+(snippet from: func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
@@ -346,7 +347,7 @@ driverFactoriesは `map[string]StorageDriverFactory` で、各ストレージド
 - [var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L11)
 <details>
 <summary>
-(snippet from var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
+(snippet from: var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
@@ -359,7 +360,7 @@ var driverFactories = make(map[string]StorageDriverFactory)
 - [func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L42)
 <details>
 <summary>
-(snippet from func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
+(snippet from: func Register() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
@@ -384,7 +385,7 @@ func Register(name string, factory StorageDriverFactory) {
 - [func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L38)
 <details>
 <summary>
-(snippet from func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
+(snippet from: func init() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
@@ -397,7 +398,7 @@ func init() {
 - [func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go#L134-L135)
 <details>
 <summary>
-(snippet from func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go)
+(snippet from: func init() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go)
 </summary>
 
 ```go
@@ -415,7 +416,7 @@ filesystemの場合、`factory.Create()` から `filesystem.FromParameters()` �
 - [func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L45)
 <details>
 <summary>
-(snippet from func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
+(snippet from: func (factory *filesystemDriverFactory) Create() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
@@ -428,7 +429,7 @@ func (factory *filesystemDriverFactory) Create(parameters map[string]interface{}
 - [func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L67)
 <details>
 <summary>
-(snippet from func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
+(snippet from: func FromParameters() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go)
 </summary>
 
 ```go
