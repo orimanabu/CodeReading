@@ -351,10 +351,9 @@ type Wrapper func(ctx context.Context, funcname string, f func(ctx context.Conte
 # 起動
 
 - [func main() @cmd/dockerregistry/main.go](https://github.com/openshift/image-registry/blob/release-4.8/cmd/dockerregistry/main.go#L93)
-<div style="padding-left: 100px; margin-left: 100px;">
 <details>
 <summary>
-func main() @cmd/dockerregistry/main.go
+(snippet from func main() @cmd/dockerregistry/main.go)
 </summary>
 
 ```go
@@ -364,12 +363,11 @@ func main() {
 }
 ```
 </details>
-</div>
 
 - [func Execute() @pkg/cmd/dockerregistry/dockerregistry.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/cmd/dockerregistry/dockerregistry.go#L164)
 <details>
 <summary>
-func Execute() @pkg/cmd/dockerregistry/dockerregistry.go
+(snippet from func Execute() @pkg/cmd/dockerregistry/dockerregistry.go)
 </summary>
 
 ```go
