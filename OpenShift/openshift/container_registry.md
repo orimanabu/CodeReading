@@ -52,7 +52,7 @@ func (bw *blobWriter) Commit(ctx context.Context, desc distribution.Descriptor) 
 
 inotify-tools入れたprivilegedコンテナでemptyPathのコンテナレジストリのストレージを見てみると、push時は一時的に `_upload` というディレクトリを掘ってその下にアップロードし、完了すると正規のblob用ディレクトリに移動して `_upload` ディレクトリを消す、みたいな動きをしているように見える。
 
-ソース的にはこの辺りが参考になりそう。
+ここのコメントの説明が参考になる。
 
 - [func pathFor() @vendor/github.com/docker/distribution/registry/storage/paths.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/paths.go#L21-L105)
 <details>
