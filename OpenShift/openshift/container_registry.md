@@ -632,7 +632,7 @@ func FromParameters(parameters map[string]interface{}) (*Driver, error) {
 
 # Blobアップロード時
 
-Blobアップロード時は、下記のディスパッチテーブルから、`StartBlobUpload()` が呼ばれる。またクライアントはアップロード完了時にHTTP PUTを送ることになっており [^1]、その場合は `PutBlobUploadComplete` が呼ばれる。
+Blobアップロード時は、下記のディスパッチテーブルから、`StartBlobUpload()` が呼ばれる。またクライアントはアップロード完了時にHTTP PUTを送ることになっており [^1] 、その場合は `PutBlobUploadComplete` が呼ばれる。
 
 [^1]: See also "[Completed Upload](https://docs.docker.com/registry/spec/api/#completed-upload)" in Docker Registry API Reference
 
