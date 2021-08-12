@@ -697,7 +697,7 @@ func (lbs *linkedBlobStore) Create @vendor/github.com/docker/distribution/regist
 
 ```go
 var _ distribution.BlobStore = &linkedBlobStore{}
-
+...
 // Writer begins a blob write session, returning a handle.
 func (lbs *linkedBlobStore) Create(ctx context.Context, options ...distribution.BlobCreateOption) (distribution.BlobWriter, error) {
 ...
@@ -767,9 +767,95 @@ func (buh *blobUploadHandler) PutBlobUploadComplete(w http.ResponseWriter, r *ht
 ```
 </details>
 
-中で `blobWriter.Commit()` が呼ばれていることがわかる。
+中で `blobWriter.Commit()` が呼ばれていることがわかる。ここでようやく冒頭の「ざっとgrepした感じここが怪しいかも」と書いたCommit処理に来た。
+
+# `blobWriter.Commit()`
+
+- [func (bw *blobWriter) Commit() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/blobwriter.go#L74)
+<details>
+<summary>
+(snippet from:
+func (bw *blobWriter) Commit() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go
+)
+</summary>
+
+```go
+// Commit marks the upload as completed, returning a valid descriptor. The
+// final size and digest are checked against the first descriptor provided.
+func (bw *blobWriter) Commit(ctx context.Context, desc distribution.Descriptor) (distribution.Descriptor, error) {
+...
+        if err := bw.moveBlob(ctx, canonical); err != nil {
+                return distribution.Descriptor{}, err
+        }
+```
+</details>
+
+いろいろ後処理っぽいことをしつつ、`moveBlob()` を呼んでいる。
+
+- [func (bw *blobWriter) moveBlob() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/blobwriter.go#L347)
+<details>
+<summary>
+(snippet from:
+func (bw *blobWriter) moveBlob() @vendor/github.com/docker/distribution/registry/storage/blobwriter.go
+)
+</summary>
+
+```go
+// moveBlob moves the data into its final, hash-qualified destination,
+// identified by dgst. The layer should be validated before commencing the
+// move.
+func (bw *blobWriter) moveBlob(ctx context.Context, desc distribution.Descriptor) error {
+...
+        return bw.blobStore.driver.Move(ctx, bw.path, blobPath)
+}
+```
+</details>
+
+最終的に、ストレージドライバの `Move()` を呼んでいる。filesystemドライバの場合は単に `os.Rename()` を呼び出すだけ、s3-awsドライバの場合は手動でコピー&削除、をやっている。
+
+- [func (d *driver) Move() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go#L267)
+<details>
+<summary>
+(snippet from:
+func (d *driver) Move() @vendor/github.com/docker/distribution/registry/storage/driver/filesystem/driver.go
+)
+</summary>
+
+```go
+// Move moves an object stored at sourcePath to destPath, removing the original
+// object.
+func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
+...
+        err := os.Rename(source, dest)
+        return err
+}
+```
+</details>
+
+- [func (d *driver) Move() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go#L799-L803)
+<details>
+<summary>
+(snippet from:
+func (d *driver) Move() @vendor/github.com/docker/distribution/registry/storage/driver/s3-aws/s3.go
+)
+</summary>
+
+```go
+// Move moves an object stored at sourcePath to destPath, removing the original
+// object.
+func (d *driver) Move(ctx context.Context, sourcePath string, destPath string) error {
+        /* This is terrible, but aws doesn't have an actual move. */
+        if err := d.copy(ctx, sourcePath, destPath); err != nil {
+                return err
+        }
+        return d.Delete(ctx, sourcePath)
+}
+```
+</details>
 
 
+
+<!--
 # xxx
 
 - [func (r *repository) Manifests() @pkg/dockerregistry/server/repository.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/repository.go#L108)
@@ -868,50 +954,7 @@ func (r *repository) Blobs(ctx context.Context) distribution.BlobStore {
 ```
 </details>
 
-- []()
-<details>
-<summary>
-(snippet from:
-)
-</summary>
 
-```go
-```
-</details>
-
-- []()
-<details>
-<summary>
-(snippet from:
-)
-</summary>
-
-```go
-```
-</details>
-
-- []()
-<details>
-<summary>
-(snippet from:
-)
-</summary>
-
-```go
-```
-</details>
-
-
-<!--
-<details>
-<summary>
-</summary>
-- 
-
-```go
-
-```
-</details>
 -->
 
 
