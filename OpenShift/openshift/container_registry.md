@@ -379,9 +379,10 @@ func Execute(configFile io.Reader) {
 ```
 </details>
 
+- [func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/cmd/dockerregistry/dockerregistry.go#L210)
 <details>
 <summary>
-func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go
+(snippet from func NewServer() @pkg/cmd/dockerregistry/dockerregistry.go)
 </summary>
 
 ```go
@@ -398,9 +399,10 @@ func NewServer(ctx context.Context, dockerConfig *configuration.Configuration, e
 ```
 </details>
 
+- [func server.NewApp() @pkg/dockerregistry/server/app.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/app.go#L138)
 <details>
 <summary>
-func server.NewApp() @pkg/dockerregistry/server/app.go
+(snippet from func server.NewApp() @pkg/dockerregistry/server/app.go)
 </summary>
 
 ```go
@@ -412,9 +414,10 @@ func NewApp(ctx context.Context, registryClient client.RegistryClient, dockerCon
 ```
 </details>
 
+- [func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go](https://github.com/openshift/image-registry/blob/release-4.8/pkg/dockerregistry/server/supermiddleware/app.go#L96)
 <details>
 <summary>
-func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go
+(snippet from func supermiddleware.NewApp() @pkg/dockerregistry/server/supermiddleware/app.go)
 </summary>
 
 ```go
@@ -430,9 +433,10 @@ func NewApp(ctx context.Context, config *configuration.Configuration, app App) *
 ```
 </details>
 
+- [func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/handlers/app.go#L122)
 <details>
 <summary>
-func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go
+(snippet from func handlers.NewApp() @vendor/github.com/docker/distribution/registry/handlers/app.go)
 </summary>
 
 ```go
@@ -459,9 +463,10 @@ cf.
 
 OCP内部レジストリの場合、Deploymentから環境変数 `REGISTRY_STORAGE` で指定している値が該当する。
 
+- [func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/configuration/configuration.go#L420)
 <details>
 <summary>
-func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go
+(snippet from func (storage Storage) Type() @vendor/github.com/docker/distribution/configuration/configuration.go)
 </summary>
 
 ```go
@@ -495,9 +500,10 @@ func (storage Storage) Type() string {
 ```
 </details>
 
+- [func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L54)
 <details>
 <summary>
-func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
+(snippet from func Create() @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
@@ -517,9 +523,10 @@ func Create(name string, parameters map[string]interface{}) (storagedriver.Stora
 
 driverFactoriesは `map[string]StorageDriverFactory` で、各ストレージドライバが `init()` の中で `factory.Register()` を呼び出して登録している。
 
+- [var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go](https://github.com/openshift/image-registry/blob/master/vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go#L11)
 <details>
 <summary>
-var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go
+(snippet from var driverFactories @vendor/github.com/docker/distribution/registry/storage/driver/factory/factory.go)
 </summary>
 
 ```go
