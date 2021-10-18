@@ -8,7 +8,7 @@
 - OpenShift v4.8
 - RHCOS kernel 4.18.0-305.19.1.el8_4.x86_64
 
-# CNI側
+# SR-IOV CNI Plugin
 
 - [ApplyVFConfig() @pkg/sriov/sriov.go](https://github.com/openshift/sriov-cni/blob/release-4.8/pkg/sriov/sriov.go#L272)
 
