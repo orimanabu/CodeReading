@@ -7,6 +7,8 @@
 - [Memory_working_set vs Memory_rss in Kubernetes, which one you should monitor?](https://medium.com/@eng.mohamed.m.saeed/memory-working-set-vs-memory-rss-in-kubernetes-which-one-you-should-monitor-8ef77bf0acee)
 - [A Deep Dive into Kubernetes Metrics](https://blog.freshtracks.io/a-deep-dive-into-kubernetes-metrics-b190cc97f0f6)
 - [Collecting metrics with built-in Kubernetes monitoring tools](https://www.datadoghq.com/blog/how-to-collect-and-graph-kubernetes-metrics/)
+- [Understanding Kubernetes Memory Metrics](https://www.magalix.com/blog/memory_working_set-vs-memory_rss)
+- [kubectl top pod と docker stats メモリー使用量の違い](https://qiita.com/yo24/items/4ff261ae4497eea5ef64)
 
 - [oc adm top node and oc describe node show different millicore counts](https://access.redhat.com/solutions/3654511)
 
