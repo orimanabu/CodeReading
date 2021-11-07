@@ -27,7 +27,7 @@ prometheus-adapter-cfcc4d7b8-6mfss             1/1     Running   0          3d7h
 prometheus-adapter-cfcc4d7b8-t6hgb             1/1     Running   0          3d7h
 ```
 
-# Metrics APIの例
+# Metrics APIの生の情報を見てみる
 
 ```
 $ oc -n csi get pod -o wide
@@ -70,37 +70,6 @@ $ kubectl get --raw /apis/metrics.k8s.io/v1beta1/namespaces/csi/pods/blockvol-fs
 ```
 
 ```
-$ kubectl get --raw /apis/metrics.k8s.io/v1beta1/namespaces/csi/pods/blockvol-fs-1 | jq
-{
-  "kind": "PodMetrics",
-  "apiVersion": "metrics.k8s.io/v1beta1",
-  "metadata": {
-    "name": "blockvol-fs-1",
-    "namespace": "csi",
-    "creationTimestamp": "2021-11-05T16:06:02Z",
-    "labels": {
-      "app": "blockvol-fs"
-    }
-  },
-  "timestamp": "2021-11-05T16:06:02Z",
-  "window": "5m0s",
-  "containers": [
-    {
-      "name": "POD",
-      "usage": {
-        "cpu": "0",
-        "memory": "176Ki"
-      }
-    },
-    {
-      "name": "centos-tools",
-      "usage": {
-        "cpu": "0",
-        "memory": "86704Ki"
-      }
-    }
-  ]
-}
 [ori@localhost NEC]$ oc adm top pod
 W1106 01:06:18.092970 2656666 top_pod.go:140] Using json format to get metrics. Next release will switch to protocol-buffers, switch early by passing --use-protocol-buffers flag
 NAME            CPU(cores)   MEMORY(bytes)   
@@ -120,23 +89,25 @@ blockvol-fs-1   centos-tools   0m           84Mi
 
 1. サービスアカウント `prometheus-k8s` のアクセストークンを取得する
 
-`$ TOKEN=$(oc serviceaccounts get-token prometheus-k8s -n openshift-monitoring)`
-
-1. `prometheus-k8s` で公開されているRouteを確認する
-
+```sh
+$ TOKEN=$(oc serviceaccounts get-token prometheus-k8s -n openshift-monitoring)
 ```
+
+2. `prometheus-k8s` で公開されているRouteを確認する
+
+```sh
 $ oc -n openshift-monitoring get route/prometheus-k8s
 ```
 
-1. RouteでexposeしたFQDNの `/targets` をブラウザで開く (もしくはRouteのURLをブラウザで開き、上のメニューの `Status` → `Targets` をクリックする)
+3. RouteでexposeしたFQDNの `/targets` をブラウザで開く (もしくはRouteのURLをブラウザで開き、上のメニューの `Status` → `Targets` をクリックする)
 
-1. `cadvisor` でページ内検索し、該当ノードのIPアドレスが含まれるURLを探す
+4. `cadvisor` でページ内検索し、該当ノードのIPアドレスが含まれるURLを探す
 
 ```sh
 $ URL=https://172.16.13.108:10250/metrics/cadvisor
 ```
 
-1. curlする！
+5. curlする！
 
 ```sh
 $ oc -n openshift-monitoring exec prometheus-k8s-0 -- curl -k -H "Authorization: Bearer ${TOKEN}" ${URL}
@@ -161,5 +132,7 @@ $ oc -n openshift-monitoring exec prometheus-k8s-0 -- curl -k -H "Authorization:
 	  - 指定したAPIグループのバージョンで、サポートされるMetrics APIがあるか
 
   - [ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L185)で `getMetricsFromMetricsAPI` を呼ぶ
+
     - [getMetricsFromMetricsAPI() @vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L210)
-	  - 
+	  - まず *vbeta1* のMetrics APIで情報を取る ([ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L218) or [ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L224))
+	  - それをMetrics APIの情報に[変換](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L230)する
