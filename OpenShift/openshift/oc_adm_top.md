@@ -134,5 +134,8 @@ $ oc -n openshift-monitoring exec prometheus-k8s-0 -- curl -k -H "Authorization:
   - [ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L185)で `getMetricsFromMetricsAPI` を呼ぶ
 
     - [getMetricsFromMetricsAPI() @vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L210)
-	  - まず *vbeta1* のMetrics APIで情報を取る ([ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L218) or [ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L224))
-	  - それをMetrics APIの情報に[変換](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L230)する
+      - まず *vbeta1* のMetrics APIで情報を取る ([ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L218) or [ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L224))
+        - [Get() @vendor/k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1/podmetrics.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1/podmetrics.go#L61)
+      - それをMetrics APIの情報に[変換](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L230)する
+        - [Convert_v1beta1_PodMetricsList_To_metrics_PodMetricsList() @vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go#L195)
+        - [autoConvert_v1beta1_PodMetricsList_To_metrics_PodMetricsList() @vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go#L188)
