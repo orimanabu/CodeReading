@@ -138,4 +138,50 @@ $ oc -n openshift-monitoring exec prometheus-k8s-0 -- curl -k -H "Authorization:
         - [Get() @vendor/k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1/podmetrics.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/client/clientset/versioned/typed/metrics/v1beta1/podmetrics.go#L61)
       - それをMetrics APIの情報に[変換](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L230)する
         - [Convert_v1beta1_PodMetricsList_To_metrics_PodMetricsList() @vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go#L195)
-        - [autoConvert_v1beta1_PodMetricsList_To_metrics_PodMetricsList() @vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go#L188)
+          - [autoConvert_v1beta1_PodMetricsList_To_metrics_PodMetricsList() @vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/metrics/pkg/apis/metrics/v1beta1/zz_generated.conversion.go#L188)
+
+  - あとは `PrintPodMetrics()` で表示する ([ここ](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/cmd/top/top_pod.go#L207))
+    - [PrintPodMetrics() @vendor/k8s.io/kubectl/pkg/metricsutil/metrics_printer.go](https://github.com/openshift/oc/blob/release-4.8/vendor/k8s.io/kubectl/pkg/metricsutil/metrics_printer.go#L193)
+
+# cAdvisor
+- [GetStats() @vendor/github.com/google/cadvisor/container/crio/handler.go](https://github.com/openshift/kubernetes/blob/release-4.8/vendor/github.com/google/cadvisor/container/crio/handler.go#L301)
+  - libcontainerHanderのGetStats()を呼ぶ ([ここ](https://github.com/openshift/kubernetes/blob/release-4.8/vendor/github.com/google/cadvisor/container/crio/handler.go#L303))
+
+  - [GetStats() @vendor/github.com/google/cadvisor/container/libcontainer/handler.go](https://github.com/openshift/kubernetes/blob/release-4.8/vendor/github.com/google/cadvisor/container/libcontainer/handler.go#L72)
+    - [newContainerStats() @vendor/github.com/google/cadvisor/container/libcontainer/handler.go](https://github.com/openshift/kubernetes/blob/release-4.8/vendor/github.com/google/cadvisor/container/libcontainer/handler.go#L902)
+      - [setMemoryStats() @vendor/github.com/google/cadvisor/container/libcontainer/handler.go](https://github.com/openshift/kubernetes/blob/release-4.8/vendor/github.com/google/cadvisor/container/libcontainer/handler.go#L792)
+
+# CRI-O
+- [GetStats() @vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs/memory.go](https://github.com/cri-o/cri-o/blob/main/vendor/github.com/opencontainers/runc/libcontainer/cgroups/fs/memory.go#L143)
+
+# Kernel
+- [memcg1_stat_names @mm/memcontrol.c]
+```c
+static const char *const memcg1_stat_names[] = {
+        "cache",
+        "rss",
+#ifdef CONFIG_TRANSPARENT_HUGEPAGE
+        "rss_huge",
+#endif
+        "shmem",
+        "mapped_file",
+        "dirty",
+        "writeback",
+        "swap",
+};
+```
+
+- [vmstat_text @mm/vmstat.c]
+```c
+const char * const vmstat_text[] = { 
+...
+        /* enum node_stat_item counters */
+        "nr_inactive_anon",
+        "nr_active_anon",
+        "nr_inactive_file",
+        "nr_active_file",
+        "nr_unevictable",
+...
+```
+
+- [memcg_stat_show() @mm/memcontrol.c]
