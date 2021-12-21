@@ -38,7 +38,7 @@ managed-mbggk-worker-0-fgmk7   10.0.3.23
 IPIインストールすると、`openshift-openstack-infra` というnamespaceができて、以下のPodが起動する。
 
 ```
-[cloud-user@bastion ~]$ oc -n openshift-openstack-infra get pod
+$ oc -n openshift-openstack-infra get pod
 NAME                                      READY   STATUS    RESTARTS   AGE
 coredns-managed-mbggk-master-0            2/2     Running   0          41h
 coredns-managed-mbggk-master-1            2/2     Running   0          41h
